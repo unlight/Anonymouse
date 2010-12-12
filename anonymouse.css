@@ -1,0 +1,14 @@
+#Content > div.Foot {
+	display: none;
+}
+
+.AnonymousCommentForm .YourName {
+	text-align: left;
+	margin-bottom: 6px;
+}
+
+.AnonymousCommentForm .YourName #Form_Name {
+	height:15px;
+	font-size:95%;
+}
+
