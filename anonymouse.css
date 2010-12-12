@@ -7,8 +7,11 @@
 	margin-bottom: 6px;
 }
 
-.AnonymousCommentForm .YourName #Form_Name {
-	height:15px;
-	font-size:95%;
+#Form_YourName {
+	height: 15px;
+	font-size: 95%;	
 }
 
+.PostFormControlPanel #Form_SaveDraft {
+	display:none;
+}

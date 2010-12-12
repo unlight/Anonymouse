@@ -19,7 +19,7 @@ if (!$Session->CheckPermission('Vanilla.Comment.Add')) {
 }
 */
 // TODO: ADD OTHER FIELD EMAIL OR URL
-echo Wrap(/*$this->Form->Label('Your Name', 'Name').*/$this->Form->TextBox('Name', array('placeholder' => 'Your name')), 'div', array('class' => 'YourName'));
+echo Wrap(/*$this->Form->Label('Your Name', 'Name').*/$this->Form->TextBox('YourName', array('placeholder' => 'Your name')), 'div', array('class' => 'YourName'));
 echo $this->Form->TextBox('Body', $CommentOptions);
 //d($this->Form);
 echo "<div class=\"Buttons\">\n";
