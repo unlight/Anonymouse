@@ -7,6 +7,7 @@ $PluginInfo['Anonymouse'] = array(
 	'Version' => '2.0.alpha',
 	'Date' => '13 Dec 2010',
 	'Author' => '',
+	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
 	'AuthorUrl' => False
 );
 
