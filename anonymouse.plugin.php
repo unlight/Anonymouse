@@ -3,10 +3,10 @@
 $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
-	'SettingsUrl' => '/plugin/anonymouse',
-	'Version' => '2.0.alpha',
+	//'SettingsUrl' => '/plugin/anonymouse',
+	'Version' => '2.0.1',
 	'Date' => '13 Dec 2010',
-	'Author' => '',
+	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
 	'AuthorUrl' => False
 );
@@ -210,6 +210,8 @@ class AnonymousePlugin extends Gdn_Plugin {
 				$DiscussionModel = $Sender->DiscussionModel;
 				if ($Form->ButtonExists('Post Discussion')) {
 					
+					
+					
 					// TODO: FIX ME, SAME CODE FOR COMMENT
 					$this->PostValues = $Form->FormValues();
 					$this->CookieName($this->PostValues);
@@ -220,8 +222,15 @@ class AnonymousePlugin extends Gdn_Plugin {
 					
 					if (!$bValidCaptcha)
 						$DiscussionModel->Validation->AddValidationResult('Captcha', '%s: Invalid code from image');
-
+					
 					$Sender->CategoryID = ArrayValue('CategoryID', $this->PostValues, 0);
+					
+					foreach (array('Announce', 'Close', 'Sink') as $Field) unset($this->PostValues[$Field]);
+               
+					// Make sure that the title will not be invisible after rendering
+					$Name = $Form->GetFormValue('Name', '');
+					if ($Name != '' && Gdn_Format::Text($Name) == '')
+						$Form->AddError(T('You have entered an invalid discussion title'), 'Name');
 					
 					$this->BecomeAnonymousUser();
 					$DiscussionModel->SpamCheck = False;
