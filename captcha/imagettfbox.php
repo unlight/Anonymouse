@@ -10,8 +10,8 @@
 $Configuration = array();
 $Configuration['NumChars'] = 3;
 $Configuration['CharRange'] = '/[0-9]/'; // preg_match expression
-$Configuration['CharWidth'] = 30;
-$Configuration['CharHeight'] = 30;
+$Configuration['CharWidth'] = 25;
+$Configuration['CharHeight'] = 25;
 $Configuration['CharSpace'] = $Configuration['CharWidth'] * 0.1;
 $Configuration['Padding'] = 5;
 $Configuration['Noise'] = 5;

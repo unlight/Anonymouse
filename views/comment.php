@@ -9,7 +9,7 @@
 // TODO: /post/anonymouscomment ? [HOLD]
 echo $this->Form->Open();
 echo $this->Form->Errors();
-$CommentOptions = array('MultiLine' => TRUE);
+$CommentOptions = array('MultiLine' => True);
 /*
 Caused non-root users to not be able to add comments. Must take categories
 into account. Look at CheckPermission for more information.
@@ -19,7 +19,21 @@ if (!$Session->CheckPermission('Vanilla.Comment.Add')) {
 }
 */
 // TODO: ADD OTHER FIELD EMAIL OR URL
-echo Wrap(/*$this->Form->Label('Your Name', 'Name').*/$this->Form->TextBox('YourName', array('placeholder' => 'Your name')), 'div', array('class' => 'YourName'));
+
+$AnonymousFormInputs = '';
+
+$CaptchaImageSource = $this->CaptchaImageSource;
+//$AnonymousFormInputs = $this->Form->TextBox('YourName', array('placeholder' => T('Your name')));
+$AnonymousFormInputs = Wrap(Img($CaptchaImageSource)
+	. $this->Form->TextBox('CaptchaCode', array('placeholder' => T('Code from image'))),
+	'div', array('id' => 'CaptchaBox')
+);
+
+echo Wrap($this->Form->TextBox('YourName', array('placeholder' => 'Your name')).$AnonymousFormInputs,
+	'div', array('class' => 'YourName'));
+
+
+
 echo $this->Form->TextBox('Body', $CommentOptions);
 //d($this->Form);
 echo "<div class=\"Buttons\">\n";

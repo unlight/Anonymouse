@@ -142,7 +142,15 @@ class AnonymousePlugin extends Gdn_Plugin {
 	public function PostController_BeforeFormInputs_Handler($Sender) {
 		$Session = Gdn::Session();
 		if ($Session->IsValid()) return;
-		echo $Sender->Form->TextBox('YourName', array('placeholder' => T('Your name')));
+		$CaptchaImageSource = $this->GetWebResource('captcha/imagettfbox.php');
+		$AnonymousFormInputs = $Sender->Form->TextBox('YourName', array('placeholder' => T('Your name')));
+		
+		$AnonymousFormInputs .= Wrap(Img($CaptchaImageSource)
+			. $Sender->Form->TextBox('CaptchaCode', array('placeholder' => T('Code from image'))),
+			'div', array('id' => 'CaptchaBox')
+		);
+				
+		echo Wrap($AnonymousFormInputs, 'div', array('AnonymousFormInputs'));
 	}
 	
 	public function DiscussionController_BeforeCommentMeta_Handler($Sender) {
@@ -177,6 +185,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		if (!$Session->IsValid() && $AddCommentsPermission) {
 			$Sender->AddCssFile($this->GetWebResource('anonymouse.css'));
 			$Sender->Form->SetValue('YourName', $this->CookieName());
+			$Sender->CaptchaImageSource = $this->GetWebResource('captcha/imagettfbox.php');
 			$View = $this->GetView('comment.php');
 			$CommentFormHtml = $Sender->FetchView($View);
 			$Sender->AddAsset('Content', $CommentFormHtml);
@@ -194,14 +203,26 @@ class AnonymousePlugin extends Gdn_Plugin {
 		
 		if ($Sender->Form->IsPostBack() != False) {
 			$Form = $Sender->Form;
+			
 			$RequestMethod = strtolower($Sender->RequestMethod);
 			if ($RequestMethod == 'discussion' || $RequestMethod == 'anonymousdiscussion') {
 				$Form->InputPrefix = 'Discussion';
+				$DiscussionModel = $Sender->DiscussionModel;
 				if ($Form->ButtonExists('Post Discussion')) {
+					
+					// TODO: FIX ME, SAME CODE FOR COMMENT
 					$this->PostValues = $Form->FormValues();
-					$Sender->CategoryID = ArrayValue('CategoryID', $this->PostValues, 0);
 					$this->CookieName($this->PostValues);
-					$DiscussionModel = $Sender->DiscussionModel;
+					
+					$CaptchaCode = ArrayValue('CaptchaCode', $this->PostValues);
+					$CaptchaKey = ArrayValue('CaptchaKey', $_SESSION);
+					$bValidCaptcha = ($CaptchaKey && $CaptchaKey == $CaptchaCode);
+					
+					if (!$bValidCaptcha)
+						$DiscussionModel->Validation->AddValidationResult('Captcha', '%s: Invalid code from image');
+
+					$Sender->CategoryID = ArrayValue('CategoryID', $this->PostValues, 0);
+					
 					$this->BecomeAnonymousUser();
 					$DiscussionModel->SpamCheck = False;
 					// Save vanilla discussion
@@ -215,27 +236,47 @@ class AnonymousePlugin extends Gdn_Plugin {
 					} else {
 						$Form->SetValidationResults( $DiscussionModel->ValidationResults() );
 						$Sender->StatusMessage = $Form->Errors();
+						// TODO: clear CaptchaKey
 					}
 				}
 				// TODO: Preview
 			} elseif ($RequestMethod == 'comment') {
 				$Form->InputPrefix = 'Comment';
-				$this->PostValues = $Form->FormValues();
-				$this->CookieName($this->PostValues);
+				
+				{
+					$this->PostValues = $Form->FormValues();
+					$this->CookieName($this->PostValues);
+					
+					$CaptchaCode = ArrayValue('CaptchaCode', $this->PostValues);
+					$CaptchaKey = ArrayValue('CaptchaKey', $_SESSION);
+					$bValidCaptcha = ($CaptchaKey && $CaptchaKey == $CaptchaCode);
+					
+					if (!$bValidCaptcha)
+						$Sender->CommentModel->Validation->AddValidationResult('Captcha', '%s: Invalid code from image');
+				}
+
 				$this->BecomeAnonymousUser();
 				$Sender->CommentModel->SpamCheck = False;
 				// Save vanilla comment
+				
+				// BUG: fatal error for first comment for discussion
+				// https://github.com/vanillaforums/Garden/issues/issue/699
+				// TODO: WAIT FOR FIX
+				
 				$CommentID = $Sender->CommentModel->Save($this->PostValues);
 				$this->BecomeUnAuthenticatedUser();
 				if ($CommentID != False) {
+
 					// Save anonymous comment
 					$this->Save($CommentID, $this->PostValues, 'Comment');
 					$Sender->RedirectUrl = Url("discussion/comment/$CommentID/#Comment_$CommentID");
 					if ($Sender->DeliveryType() == DELIVERY_TYPE_ALL) Redirect($Sender->RedirectUrl);
-					$Sender->Render();					
+					$Sender->Render();				
 				} else {
 					$Form->SetValidationResults( $Sender->CommentModel->ValidationResults() );
 					$Sender->StatusMessage = $Form->Errors();
+					// TODO: reset CaptchaKey
+
 				}
 			}
 		}
@@ -247,6 +288,10 @@ class AnonymousePlugin extends Gdn_Plugin {
 			include_once dirname(__FILE__) . '/modules/class.newanonymousdiscussionmodule.php';
 			$this->bInitialized = True;
 		}
+	}
+	
+	protected function ResetCaptchaKey() {
+		$_SESSION['CaptchaKey'] = Null;
 	}
 	
 	/* ============================== SETUP */
