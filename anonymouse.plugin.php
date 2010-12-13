@@ -140,6 +140,8 @@ class AnonymousePlugin extends Gdn_Plugin {
 	/* =============================== HOOKS */
 	
 	public function PostController_BeforeFormInputs_Handler($Sender) {
+		$Session = Gdn::Session();
+		if ($Session->IsValid()) return;
 		echo $Sender->Form->TextBox('YourName', array('placeholder' => T('Your name')));
 	}
 	
@@ -267,6 +269,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	public function Setup(){
 		//$UserModel = Gdn::UserModel();
 		$AnonymousUserID = Gdn::Config('Plugins.Anonymouse.AnonymousUserID', 0);
+
 		if (!$AnonymousUserID) {
 			$Fields = array('Name' => 'Anonymous', 'DateInserted' => Gdn_Format::ToDateTime(), 'Password' => '', 'Email' => '');
 			$AnonymousUserID = (int) Gdn::SQL()->Insert('User', $Fields);
@@ -407,3 +410,4 @@ class AnonymousePlugin extends Gdn_Plugin {
 
 
 // workspace
+//$AnonymousePlugin = new AnonymousePlugin(); $AnonymousePlugin->Setup(); d('setup ok');
