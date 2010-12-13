@@ -12,11 +12,10 @@ $PluginInfo['Anonymouse'] = array(
 );
 
 /* =======================
+
 CONFIG:
 $Configuration['Plugins']['Anonymouse']['Category'] = array(1,2);
 
-TODO:
-Captcha
 */
 
 if (!function_exists('UserAnchor')) {
@@ -193,6 +192,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	}
 
 	public function PostController_All_Handler($Sender) {
+		
 		$Session = Gdn::Session();
 		if ($Session->IsValid()) return;
 		if ($this->PostValues !== Null) return;
@@ -202,6 +202,8 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$Session->SetPermission('Vanilla.Discussions.Add');
 		
 		if ($Sender->Form->IsPostBack() != False) {
+			// Start session
+			if (!isset($_SESSION)) session_start();
 			$Form = $Sender->Form;
 			
 			$RequestMethod = strtolower($Sender->RequestMethod);
