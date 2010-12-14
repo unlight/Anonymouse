@@ -16,7 +16,6 @@ $PluginInfo['Anonymouse'] = array(
 
 CONFIG:
 $Configuration['Plugins']['Anonymouse']['Category'] = array(1,2);
-
 */
 
 if (!function_exists('UserAnchor')) {
@@ -54,43 +53,39 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	/* =============================== CONTROLLER */
 	
-	// TODO: Settings
 	public function SettingsController_Anonymouse_Create($Sender) {
 		$Sender->Permission('Garden.Settings.Manage');
 		//$Sender->Permission('Garden.Plugins.Manage');
 		
-		$Sender->Title('Anonymouse');
+		$Sender->Title('Anonymouse settings');
 		$Sender->AddSideMenu('settings/anonymouse');
+		
+		$Form = $Sender->Form;
 		
 		$Validation = new Gdn_Validation();
 		$ConfigurationModel = new Gdn_ConfigurationModel($Validation);
 		
 		$ConfigurationModel->SetField(array(
+			'Plugins.Anonymouse.Category'
 		));
 		
 		$Sender->Form->SetModel($ConfigurationModel);
-		
-		if ($Sender->Form->AuthenticatedPostBack() === False) {
-			$Sender->Form->SetData($ConfigurationModel->Data);
-		} else {
-			// Define some validation rules for the fields being saved
-			$Validation->ApplyRule('', array('Required', 'Integer'));
-			if ($Sender->Form->Save() != False) $Sender->StatusMessage = T('Saved');
-		}
-		
-	
-/*		$CategoryModel = new Gdn_Model('Category');
-		$Sender->CategoryData = $CategoryModel->GetWhere(array('AllowDiscussions' => 1));
-		$Sender->AnonymouseCategory = C('Plugins.Anonymouse.Category');*/
-		
+		$Validation->ApplyRule('Plugins.Anonymouse.Category', 'RequiredArray');
 		
 		if ($Sender->Form->AuthenticatedPostBack() != False) {
-			
+			if ($Form->ButtonExists('Reset to defaults')) {
+				RemoveFromConfig('Plugins.Anonymouse.Category');
+				$Sender->StatusMessage = T('Saved');
+			} elseif ($Sender->Form->Save() != False)
+				$Sender->StatusMessage = T('Saved');
 		} else {
-			$Sender->Form->SetData('Plugins.Anonymouse.Category');
+			$Sender->Form->SetData($ConfigurationModel->Data);
 		}
-		
-		
+	
+		$CategoryModel = new Gdn_Model('Category');
+		$Sender->CategoryData = $CategoryModel->GetWhere(array('AllowDiscussions' => 1));
+		$Sender->AnonymouseCategory = C('Plugins.Anonymouse.Category');
+
 		$Sender->View = $this->GetView('settings.php');
 		$Sender->Render();
 	}
@@ -176,6 +171,10 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$Session->User->HourOffset = 0;
 		$Session->User->Name = 'Anonymous';
 		$Session->User->CountNotifications = 0;
+	}
+	
+	protected function ResetCaptchaKey() {
+		$_SESSION['CaptchaKey'] = Null;
 	}
 	
 	/* =============================== HOOKS */
@@ -343,10 +342,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 			include_once dirname(__FILE__) . '/modules/class.newanonymousdiscussionmodule.php';
 			$this->bInitialized = True;
 		}
-	}
-	
-	protected function ResetCaptchaKey() {
-		$_SESSION['CaptchaKey'] = Null;
 	}
 	
 	/* ============================== SETUP */
