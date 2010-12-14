@@ -3,12 +3,12 @@
 $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
-	//'SettingsUrl' => '/plugin/anonymouse',
+	'SettingsUrl' => '/settings/anonymouse',
 	'Version' => '2.1.0',
 	'Date' => '13 Dec 2010',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
-	'RequiredPlugins' => array('Morf' => '*'),
+	//'RequiredPlugins' => array('Morf' => '*'),
 	'AuthorUrl' => False
 );
 
@@ -55,6 +55,45 @@ class AnonymousePlugin extends Gdn_Plugin {
 	/* =============================== CONTROLLER */
 	
 	// TODO: Settings
+	public function SettingsController_Anonymouse_Create($Sender) {
+		$Sender->Permission('Garden.Settings.Manage');
+		//$Sender->Permission('Garden.Plugins.Manage');
+		
+		$Sender->Title('Anonymouse');
+		$Sender->AddSideMenu('settings/anonymouse');
+		
+		$Validation = new Gdn_Validation();
+		$ConfigurationModel = new Gdn_ConfigurationModel($Validation);
+		
+		$ConfigurationModel->SetField(array(
+		));
+		
+		$Sender->Form->SetModel($ConfigurationModel);
+		
+		if ($Sender->Form->AuthenticatedPostBack() === False) {
+			$Sender->Form->SetData($ConfigurationModel->Data);
+		} else {
+			// Define some validation rules for the fields being saved
+			$Validation->ApplyRule('', array('Required', 'Integer'));
+			if ($Sender->Form->Save() != False) $Sender->StatusMessage = T('Saved');
+		}
+		
+	
+/*		$CategoryModel = new Gdn_Model('Category');
+		$Sender->CategoryData = $CategoryModel->GetWhere(array('AllowDiscussions' => 1));
+		$Sender->AnonymouseCategory = C('Plugins.Anonymouse.Category');*/
+		
+		
+		if ($Sender->Form->AuthenticatedPostBack() != False) {
+			
+		} else {
+			$Sender->Form->SetData('Plugins.Anonymouse.Category');
+		}
+		
+		
+		$Sender->View = $this->GetView('settings.php');
+		$Sender->Render();
+	}
 	
 	public function PostController_Render_Before($Sender) {
 		$RequestMethod = strtolower($Sender->RequestMethod);
