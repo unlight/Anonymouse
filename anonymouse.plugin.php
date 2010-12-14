@@ -4,7 +4,7 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.1.1',
+	'Version' => '2.1.2',
 	'Date' => '14 Dec 2010',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
@@ -164,6 +164,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 			$AnonymousUserID = Gdn::Config('Plugins.Anonymouse.AnonymousUserID', 0);
 		$Session = Gdn::Session();
 		if ($Session->IsValid()) return;
+		// TODO: $Session->User = Gdn_Dummy(); // may be useful
 		$Session->UserID = $AnonymousUserID;
 		$Session->User = new StdClass(); // for php < 5.3 
 		$Session->User->UserID = $AnonymousUserID;
