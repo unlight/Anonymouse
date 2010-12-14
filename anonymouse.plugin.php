@@ -329,7 +329,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 				} else {
 					$Form->SetValidationResults( $Sender->CommentModel->ValidationResults() );
 					$Sender->StatusMessage = $Form->Errors();
-					$this->ResetCaptchaKey();
 				}
 			}
 			// Reset captcha key for discussion and comment
