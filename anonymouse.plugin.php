@@ -4,10 +4,11 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	//'SettingsUrl' => '/plugin/anonymouse',
-	'Version' => '2.0.1',
+	'Version' => '2.1.0',
 	'Date' => '13 Dec 2010',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
+	'RequiredPlugins' => array('Morf' => '*'),
 	'AuthorUrl' => False
 );
 
@@ -61,6 +62,8 @@ class AnonymousePlugin extends Gdn_Plugin {
 		if ($Session->IsValid()) return;
 		
 		$Sender->AddCssFile($this->GetWebResource('anonymouse.css'));
+		$Sender->AddJsFile($this->GetWebResource('anonymouse.js'));
+		
 		$Sender->Form->SetValue('YourName', $this->CookieName());
 		
 		if ($RequestMethod == 'discussion') {
@@ -182,7 +185,10 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$AddCommentsPermission = $Session->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $Sender->CategoryID);
 		
 		if (!$Session->IsValid() && $AddCommentsPermission) {
+			
 			$Sender->AddCssFile($this->GetWebResource('anonymouse.css'));
+			$Sender->AddJsFile($this->GetWebResource('anonymouse.js'));
+			
 			$Sender->Form->SetValue('YourName', $this->CookieName());
 			$Sender->CaptchaImageSource = $this->GetWebResource('captcha/imagettfbox.php');
 			$View = $this->GetView('comment.php');
@@ -247,7 +253,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 					} else {
 						$Form->SetValidationResults( $DiscussionModel->ValidationResults() );
 						$Sender->StatusMessage = $Form->Errors();
-						// TODO: clear CaptchaKey
 					}
 				}
 				// TODO: Preview
@@ -277,7 +282,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 				$CommentID = $Sender->CommentModel->Save($this->PostValues);
 				$this->BecomeUnAuthenticatedUser();
 				if ($CommentID != False) {
-
 					// Save anonymous comment
 					$this->Save($CommentID, $this->PostValues, 'Comment');
 					$Sender->RedirectUrl = Url("discussion/comment/$CommentID/#Comment_$CommentID");
@@ -286,10 +290,11 @@ class AnonymousePlugin extends Gdn_Plugin {
 				} else {
 					$Form->SetValidationResults( $Sender->CommentModel->ValidationResults() );
 					$Sender->StatusMessage = $Form->Errors();
-					// TODO: reset CaptchaKey
-
+					$this->ResetCaptchaKey();
 				}
 			}
+			// Reset captcha key for discussion and comment
+			$this->ResetCaptchaKey();
 		}
 	}
 	
@@ -338,126 +343,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 	}
 }
 	
-	// Settings
-/*	public function SettingsController_Anonymouse_Create($Sender) {
-		$Sender->Permission('Garden.Settings.Manage');
-		$Sender->Title('Anonymouse');
-		$Sender->AddSideMenu('settings/anonymouse');
-		$SQL = Gdn::SQL();
-		$Sender->TagData = $SQL
-			->Select('t.*')
-			->From('Tag t')
-			->OrderBy('t.Name', 'asc')
-			->OrderBy('t.CountDiscussions', 'desc')
-			->Get();
-		//$Sender->Render('plugins/Tagging/views/tagging.php');
-	}*/
-
-
-	
-	/*	public function PostController_AnonymousDiscussion_Create($Sender) {
-		$CategoryID = ArrayValue(0, $Sender->RequestArgs);
-		$Session = Gdn::Session();
-		
-		$Sender->AddJsFile('jquery.autogrow.js');
-		$Sender->AddJsFile('post.js');
-		
-		$UseCategories = C('Vanilla.Categories.Use');
-		if ($UseCategories) {
-			$CategoryModel = new Gdn_Model('Category');
-			$Permission = C('Plugins.Anonymouse.Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
-			$CategoryModel->SQL->WhereIn('CategoryID', $Permission);
-			$Sender->CategoryData = $CategoryModel->GetWhere(array('AllowDiscussions' => 1));
-		} else $CategoryID = 0;
-		$Sender->CategoryID = $CategoryID;
-		
-		$Sender->AddJsFile('jquery.autogrow.js');
-		$Form = $Sender->Form;
-		$DiscussionModel = $Sender->DiscussionModel;
-
-		if ($Form->IsPostBack() != False) {
-			$Preview = $Form->ButtonExists('Preview') ? True : False;
-			
-		} else {
-			$Form->SetData(array('CategoryID' => $CategoryID));
-		}
-		$Sender->View = $this->GetView('discussion.php');
-		$Sender->Render();
-		
-		
-		$this->BecomeAnonymousUser();
-		
-		// DUPPY FIX ME
-		$Session = Gdn::Session();
-		$Permission = C('Plugins.Anonymouse.Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
-		$Session->SetPermission('Vanilla.Comments.Add', $Permission);
-		
-		$Session->SetPermission('Vanilla.Discussions.Add');
-		
-		$Sender->View = 'Discussion';
-		$Sender->Discussion($CategoryID);
-		$this->BecomeUnAuthenticatedUser();
-	}*/
-	
-
-
-
-	
-/*	// FAIL. Fires for Authenticated User only
-	public function Base_AfterGetSession_Handler($Sender) {
-		$User =& $Sender->EventArguments['User'];
-		$User->Permissions = Gdn_Format::Unserialize($User->Permissions);
-		//$Session = Gdn::Session();
-		//$Session->UserID = 13;
-		//$Session->SetPermission('Vanilla.Discussions.Add', array(1)); // second method
-		//d($Session);
-	}*/
-	
-/*	public function DiscussionController_AfterComment_Handler($Sender) {
-		static $LastCommentID;
-		//$LastComment = $CommentData->LastRow();
-		//$CommentData = $Sender->Data['CommentData'];
-		$Object = $Sender->EventArguments['Object'];
-		$Type = $Sender->EventArguments['Type'];
-		if ($Type == 'Discussion') {
-			$LastCommentID = $Object->LastCommentID;
-		} elseif ($Type == 'Comment') {
-			// TODO: FIX ME IF NOT LAST PAGE
-
-			if ($Object->CommentID == $LastCommentID) {
-				$Session = Gdn::Session();
-				$Session->UserID = 14;
-				$Session->User->UserID = 14;
-				$Session->User->Admin = 0;
-				$Session->User->HourOffset = 0;
-				$Session->User->Name = 'Anonymouse';
-				$Session->User->CountNotifications = 0;
-				
-				$Session->SetPermission('Vanilla.Comments.Add', array(1));
-			}
-		}
-	}*/
-	
-	// OBSOLETE
-/*	public function DiscussionController_AfterCommentTabs_Handler() {
-		// DISABLE FAKE USER ID
-		$Session = Gdn::Session();
-		$Session->UserID = 0;
-	}*/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -466,4 +351,3 @@ class AnonymousePlugin extends Gdn_Plugin {
 
 
 // workspace
-//$AnonymousePlugin = new AnonymousePlugin(); $AnonymousePlugin->Setup(); d('setup ok');
