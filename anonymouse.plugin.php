@@ -4,7 +4,7 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.1.5',
+	'Version' => '2.1.6',
 	'Date' => '1 Jan 2010',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
@@ -213,6 +213,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	public function DiscussionController_Render_Before($Sender) {
 		$Session = Gdn::Session();
+		if (empty($Sender->CommentData)) return;
 		$this->AnonymousCommentData = $this->GetAnonymousCommentData($Sender->CommentData);
 		$DiscussionID = GetValueR('Discussion.DiscussionID', $Sender);
 		$this->AnonymousDiscussionData = $this->GetAnonymousDiscussionData($DiscussionID);
