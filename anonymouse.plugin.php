@@ -4,7 +4,7 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.1.3',
+	'Version' => '2.1.4',
 	'Date' => '1 Jan 2010',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
@@ -90,12 +90,13 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$Sender->Render();
 	}
 	
-	public function GetWebResource($Filepath) {
+/*	public function GetWebResource($Filepath) {
 		$Result = parent::GetWebResource($Filepath);
 		$Folder = Gdn::Request()->RequestFolder();
-		$Result = str_replace($Folder, '', $Result);
+		$Result = substr($Result, strlen($Folder));
+		//d($Result);
 		return $Result;
-	}
+	}*/
 	
 	public function PostController_Render_Before($Sender) {
 		$RequestMethod = strtolower($Sender->RequestMethod);
