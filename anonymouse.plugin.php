@@ -4,7 +4,7 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.1.4',
+	'Version' => '2.1.5',
 	'Date' => '1 Jan 2010',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
@@ -90,21 +90,13 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$Sender->Render();
 	}
 	
-/*	public function GetWebResource($Filepath) {
-		$Result = parent::GetWebResource($Filepath);
-		$Folder = Gdn::Request()->RequestFolder();
-		$Result = substr($Result, strlen($Folder));
-		//d($Result);
-		return $Result;
-	}*/
-	
 	public function PostController_Render_Before($Sender) {
 		$RequestMethod = strtolower($Sender->RequestMethod);
 		$Session = Gdn::Session();
 		if ($Session->IsValid()) return;
 		
-		$Sender->AddCssFile( $this->GetWebResource('anonymouse.css') );
-		$Sender->AddJsFile( $this->GetWebResource('anonymouse.js') );
+		$Sender->AddCssFile('plugins/Anonymouse/anonymouse.css');
+		$Sender->AddJsFile('plugins/Anonymouse/anonymouse.js');
 		
 		$Sender->Form->SetValue('YourName', $this->CookieName());
 		
@@ -191,10 +183,8 @@ class AnonymousePlugin extends Gdn_Plugin {
 	public function PostController_BeforeFormInputs_Handler($Sender) {
 		$Session = Gdn::Session();
 		if ($Session->IsValid()) return;
-		$CaptchaImageSource = $this->GetWebResource('captcha/imagettfbox.php');
 		$AnonymousFormInputs = $Sender->Form->TextBox('YourName', array('placeholder' => T('Your name')));
-		
-		$AnonymousFormInputs .= Wrap(Img($CaptchaImageSource)
+		$AnonymousFormInputs .= Wrap(Img('plugins/Anonymouse/captcha/imagettfbox.php')
 			. $Sender->Form->TextBox('CaptchaCode', array('placeholder' => T('Code from image'))),
 			'div', array('id' => 'CaptchaBox')
 		);
@@ -233,11 +223,11 @@ class AnonymousePlugin extends Gdn_Plugin {
 		
 		if (!$Session->IsValid() && $AddCommentsPermission) {
 			
-			$Sender->AddCssFile($this->GetWebResource('anonymouse.css'));
-			$Sender->AddJsFile($this->GetWebResource('anonymouse.js'));
+			$Sender->AddCssFile('plugins/Anonymouse/anonymouse.css');
+			$Sender->AddJsFile('plugins/Anonymouse/anonymouse.js');
 			
 			$Sender->Form->SetValue('YourName', $this->CookieName());
-			$Sender->CaptchaImageSource = $this->GetWebResource('captcha/imagettfbox.php');
+			$Sender->CaptchaImageSource = 'plugins/Anonymouse/captcha/imagettfbox.php';
 			$View = $this->GetView('comment.php');
 			$CommentFormHtml = $Sender->FetchView($View);
 			$Sender->AddAsset('Content', $CommentFormHtml);
