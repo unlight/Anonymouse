@@ -4,8 +4,8 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.1.2',
-	'Date' => '14 Dec 2010',
+	'Version' => '2.1.3',
+	'Date' => '1 Jan 2010',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
 	//'RequiredPlugins' => array('Morf' => '*'),
@@ -90,13 +90,20 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$Sender->Render();
 	}
 	
+	public function GetWebResource($Filepath) {
+		$Result = parent::GetWebResource($Filepath);
+		$Folder = Gdn::Request()->RequestFolder();
+		$Result = str_replace($Folder, '', $Result);
+		return $Result;
+	}
+	
 	public function PostController_Render_Before($Sender) {
 		$RequestMethod = strtolower($Sender->RequestMethod);
 		$Session = Gdn::Session();
 		if ($Session->IsValid()) return;
 		
-		$Sender->AddCssFile($this->GetWebResource('anonymouse.css'));
-		$Sender->AddJsFile($this->GetWebResource('anonymouse.js'));
+		$Sender->AddCssFile( $this->GetWebResource('anonymouse.css') );
+		$Sender->AddJsFile( $this->GetWebResource('anonymouse.js') );
 		
 		$Sender->Form->SetValue('YourName', $this->CookieName());
 		
