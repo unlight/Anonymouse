@@ -51,6 +51,8 @@ class AnonymousePlugin extends Gdn_Plugin {
 	public $PostValues;
 	public $bInitialized;
 	
+	public $AnonymousCommentData = array();
+	
 	/* =============================== CONTROLLER */
 	
 	public function SettingsController_Anonymouse_Create($Sender) {
