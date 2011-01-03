@@ -4,7 +4,7 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.1.7',
+	'Version' => '2.1.8',
 	'Date' => '3 Jan 2010',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
@@ -16,6 +16,10 @@ $PluginInfo['Anonymouse'] = array(
 
 CONFIG:
 $Configuration['Plugins']['Anonymouse']['Category'] = array(1,2);
+$Configuration['Plugins']['Anonymouse']['AnonymousUserID'] = 0; // UserID
+$Configuration['Plugins']['Anonymouse']['AuthorName'] = False;
+False (0 or Null) - disabled (used name of AnonymousUserID, by default 'Anonymous')
+
 */
 
 if (!function_exists('UserAnchor')) {
@@ -27,6 +31,8 @@ if (!function_exists('UserAnchor')) {
 
 		if ($AnonymousUserID == $User->UserID) {
 			// TODO: FIX ME, $CssClass is lost here
+			// TODO: Make function for Anonymous + Name
+			//return sprintf('%2$s %1$s', $User->Name, 'Anonymous');
 			return $User->Name;
 		}
 		
@@ -48,10 +54,12 @@ if (!function_exists('PromoteKey')) {
 
 class AnonymousePlugin extends Gdn_Plugin {
 	
-	public $PostValues;
-	public $bInitialized;
+	protected $PostValues;
+	protected $bInitialized;
+	protected $AnonymousUserID;
 	
-	public $AnonymousCommentData = array();
+	protected $AnonymousCommentData = array();
+	protected $AnonymousDiscussionData = array();
 	
 	/* =============================== CONTROLLER */
 	
@@ -149,8 +157,10 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	protected function CookieName($Name = Null) {
 		if ($Name === Null) return ArrayValue('YourName', $_COOKIE);
-		if (!is_string($Name)) $Name = GetValue('YourName', $Name);
-		setcookie('YourName', $Name, PHP_INT_MAX, '/');
+		if (!is_string($Name)) $Name = (string) GetValue('YourName', $Name);
+		// 100% cpu usage here?.. why
+		//setcookie('YourName', $Name, PHP_INT_MAX, '/');
+		setcookie('YourName', $Name, 2147483647, '/');
 	}
 	
 	protected function BecomeUnAuthenticatedUser() {
@@ -161,9 +171,9 @@ class AnonymousePlugin extends Gdn_Plugin {
 	}
 	
 	protected function BecomeAnonymousUser() {
-		static $AnonymousUserID;
-		if ($AnonymousUserID === Null) 
-			$AnonymousUserID = Gdn::Config('Plugins.Anonymouse.AnonymousUserID', 0);
+		if ($this->AnonymousUserID === Null) 
+			$this->AnonymousUserID = Gdn::Config('Plugins.Anonymouse.AnonymousUserID', 0);
+		$AnonymousUserID = $this->AnonymousUserID;
 		$Session = Gdn::Session();
 		if ($Session->IsValid()) return;
 		// TODO: $Session->User = Gdn_Dummy(); // may be useful
@@ -194,6 +204,14 @@ class AnonymousePlugin extends Gdn_Plugin {
 		echo Wrap($AnonymousFormInputs, 'div', array('AnonymousFormInputs'));
 	}
 	
+	
+/*	protected function ReplaceAnonymousName($Type, $Object, $Author = Null) {
+		if ($Type == 'Comment') $AnonymousData =& $this->AnonymousCommentData;
+		elseif ($Type == 'Discussion') $AnonymousData =& $this->AnonymousDiscussionData;
+		if ($Author) {
+		}
+	}*/
+	
 	public function DiscussionController_BeforeCommentMeta_Handler($Sender) {
 		$Author = $Sender->EventArguments['Author'];
 		$Object = $Sender->EventArguments['Object'];
@@ -205,13 +223,39 @@ class AnonymousePlugin extends Gdn_Plugin {
 				// Change username Anonymous to Anonymous X
 				$Author->Name = sprintf('%s %s', $Author->Name, $Anonymous->Name);
 			}
-		}/* elseif ($Type == 'Discussion') {
+		} elseif ($Type == 'Discussion') {
 			if (array_key_exists($Object->DiscussionID, $this->AnonymousDiscussionData)) {
 				$Anonymous = $this->AnonymousDiscussionData[$Object->DiscussionID];
 				$Author->Name = sprintf('%s %s', $Author->Name, $Anonymous->Name);
 			}
-		}*/
+		}
 	}
+	
+	// Discussion List
+	// TODO: CONFIG AuthorName
+/*	public function DiscussionsController_Render_Before($Sender) {
+		$this->CategoriesController_Render_Before($Sender);
+	}
+	
+	public function CategoriesController_Render_Before($Sender) {
+		if (!C('Plugins.Anonymouse.AuthorName')) return;
+		
+		if (!isset($Sender->DiscussionData) || !is_object($Sender->DiscussionData)) return;
+		
+		$DiscussionIDs = ConsolidateArrayValuesByKey($Sender->DiscussionData->ResultObject(), 'DiscussionID');
+		$this->AnonymousDiscussionData = $this->GetAnonymousDiscussionData($DiscussionIDs);
+		
+		if ($this->AnonymousUserID === Null) 
+			$this->AnonymousUserID = Gdn::Config('Plugins.Anonymouse.AnonymousUserID', 0);
+		$AnonymousUserID = $this->AnonymousUserID;
+		
+		foreach($Sender->DiscussionData->ResultObject() as $Discussion) {
+			if ($AnonymousUserID == $Discussion->FirstUserID) {
+				$AuthorName = GetValueR($Discussion->DiscussionID.'.Name', $this->AnonymousDiscussionData);
+				$Discussion->FirstName = sprintf('%2$s %1$s', $AuthorName, $Discussion->FirstName);
+			}
+		}
+	}*/
 	
 	public function DiscussionController_Render_Before($Sender) {
 		$Session = Gdn::Session();

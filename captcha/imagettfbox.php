@@ -58,7 +58,7 @@ for ($i = 1; $i <= $Configuration['NumChars']; $i++) {
 	$Box = ImageTTFBbox(100, 0, $Font, $Char);
 	$CharWidth = abs($Box[4] - $Box[0]) * 1.1;
 	$CharHeight = abs($Box[5] - $Box[1]) * 1.01;
-	if($CharWidth == 0 || $CharHeight == 0) trigger_error('Failed calcualte bounding box. Font: '.basename($Font));
+	if ($CharWidth == 0 || $CharHeight == 0) trigger_error('Failed calcualte bounding box. Font: '.basename($Font));
 	
 	$CharImage = ImageCreateTrueColor($CharWidth, $CharHeight);
 	ImageFilledRectangle($CharImage, 0, 0, $CharWidth, $CharHeight, $BackgroundColor);
@@ -125,7 +125,7 @@ function ErrorHandler($N, $S, $File, $Line) {
 	$ErrorColor = ImageColorAllocate($ErrorImage, 250, 10, 10);
 	$N = 0;
 	foreach(explode(': ', $S) as $Error) ImageString($ErrorImage, 2, 5, $N++ * 12,  $Error, $ErrorColor);
-	@Header('Content-type: image/jpeg');
+	@header('Content-type: image/jpeg');
 	ImageJPEG($ErrorImage);
 	ImageDestroy($ErrorImage);
 	die();
