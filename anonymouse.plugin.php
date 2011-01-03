@@ -4,8 +4,8 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.1.6',
-	'Date' => '1 Jan 2010',
+	'Version' => '2.1.7',
+	'Date' => '3 Jan 2010',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
 	//'RequiredPlugins' => array('Morf' => '*'),
@@ -119,7 +119,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$DataSet = Gdn::SQL()
 			->Select()
 			->From('AnonymousComment')
-			->WhereIn('CommentID', $CommentData)
+			->WhereIn('CommentID', (array)$CommentData)
 			->Get();
 		$Result = PromoteKey($DataSet, 'CommentID');
 		return $Result;
