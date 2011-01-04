@@ -42,6 +42,7 @@ $CancelText = 'Back to Discussions';
 $CancelClass = 'Back';
 echo Anchor(T($CancelText), 'discussions', $CancelClass);
 $ButtonOptions = array('class' => 'Button CommentButton');
+echo $this->Form->Button('Preview', array('class' => 'Button PreviewButton PreviewCommentButton'));
 echo $this->Form->Button('Post Comment', $ButtonOptions);
 //$this->FireEvent('AfterFormButtons');
 echo "</div>\n";
