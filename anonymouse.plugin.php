@@ -4,8 +4,8 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.1.8',
-	'Date' => '3 Jan 2010',
+	'Version' => '2.2.9',
+	'Date' => '4 Jan 2010',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
 	//'RequiredPlugins' => array('Morf' => '*'),
@@ -17,8 +17,17 @@ $PluginInfo['Anonymouse'] = array(
 CONFIG:
 $Configuration['Plugins']['Anonymouse']['Category'] = array(1,2);
 $Configuration['Plugins']['Anonymouse']['AnonymousUserID'] = 0; // UserID
-$Configuration['Plugins']['Anonymouse']['AuthorName'] = False;
-False (0 or Null) - disabled (used name of AnonymousUserID, by default 'Anonymous')
+$Configuration['Plugins']['Anonymouse']['ShowAuthorName'] = ?;
+How to show anonymous name:
+0 - default, ex. Anonymous John
+1 - name of garden's anonymous user, ex. Anonymous
+2 - Name which choosed by author, ex. John 
+3 - Localized 'Anonymous' string
+
+TODO: 
+Preview
+FIX: NO PERMISSION TO VIEW, ANYWAY CAN POST
+
 
 */
 
@@ -31,8 +40,6 @@ if (!function_exists('UserAnchor')) {
 
 		if ($AnonymousUserID == $User->UserID) {
 			// TODO: FIX ME, $CssClass is lost here
-			// TODO: Make function for Anonymous + Name
-			//return sprintf('%2$s %1$s', $User->Name, 'Anonymous');
 			return $User->Name;
 		}
 		
@@ -55,7 +62,7 @@ if (!function_exists('PromoteKey')) {
 class AnonymousePlugin extends Gdn_Plugin {
 	
 	protected $PostValues;
-	protected $bInitialized;
+	//protected $bInitialized;
 	protected $AnonymousUserID;
 	
 	protected $AnonymousCommentData = array();
@@ -101,16 +108,14 @@ class AnonymousePlugin extends Gdn_Plugin {
 	}
 	
 	public function PostController_Render_Before($Sender) {
-		$RequestMethod = strtolower($Sender->RequestMethod);
 		$Session = Gdn::Session();
 		if ($Session->IsValid()) return;
 		
 		$Sender->AddCssFile('plugins/Anonymouse/anonymouse.css');
 		$Sender->AddJsFile('plugins/Anonymouse/anonymouse.js');
-		
 		$Sender->Form->SetValue('YourName', $this->CookieName());
 		
-		if ($RequestMethod == 'discussion') {
+		if (strtolower($Sender->RequestMethod) == 'discussion') {
 			$CategoryModel = new Gdn_Model('Category');
 			$Permission = C('Plugins.Anonymouse.Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
 			$CategoryModel->SQL->WhereIn('CategoryID', $Permission);
@@ -123,7 +128,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	protected function GetAnonymousCommentData($CommentData) {
 		if ($CommentData instanceof Gdn_DataSet) 
-			$CommentData = ConsolidateArrayValuesByKey($CommentData, 'CommentID');
+			$CommentData = ConsolidateArrayValuesByKey($CommentData->ResultObject(), 'CommentID');
 		$DataSet = Gdn::SQL()
 			->Select()
 			->From('AnonymousComment')
@@ -134,6 +139,8 @@ class AnonymousePlugin extends Gdn_Plugin {
 	}
 	
 	protected function GetAnonymousDiscussionData($Reference) {
+		if ($Reference instanceof Gdn_DataSet) 
+			$Reference = ConsolidateArrayValuesByKey($Reference->ResultObject(), 'DiscussionID');
 		if (!is_array($Reference)) $Reference = array($Reference);
 		$DataSet = Gdn::SQL()
 			->Select()
@@ -171,9 +178,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	}
 	
 	protected function BecomeAnonymousUser() {
-		if ($this->AnonymousUserID === Null) 
-			$this->AnonymousUserID = Gdn::Config('Plugins.Anonymouse.AnonymousUserID', 0);
-		$AnonymousUserID = $this->AnonymousUserID;
+		$AnonymousUserID = $this->GetAnonymousUserID();
 		$Session = Gdn::Session();
 		if ($Session->IsValid()) return;
 		// TODO: $Session->User = Gdn_Dummy(); // may be useful
@@ -190,6 +195,49 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$_SESSION['CaptchaKey'] = Null;
 	}
 	
+	
+	protected function ReplaceAnonymousNameForDiscussion($Discussion, $Prefix = 'First') {
+		if (array_key_exists($Discussion->DiscussionID, $this->AnonymousDiscussionData)) {
+			$AnonymousInfo = $this->AnonymousDiscussionData[$Discussion->DiscussionID];
+			$Discussion->{$Prefix.'Name'} = $this->GetAnonymousName($Discussion->{$Prefix.'Name'}, $AnonymousInfo);
+		}
+	}
+	
+	protected function ReplaceAnonymousNameForComment($Comment) {
+		if (array_key_exists($Comment->CommentID, $this->AnonymousCommentData)) {
+			$AnonymousInfo = $this->AnonymousCommentData[$Comment->CommentID];
+			$Comment->InsertName = $this->GetAnonymousName($Comment->InsertName, $AnonymousInfo);
+		}
+	}
+	
+	protected function GetAnonymousName($AnonymousUserName, $AnonymousInfo) {
+		static $bCanViewIp, $ShowAuthorName;
+		if ($ShowAuthorName === Null) $ShowAuthorName = C('Plugins.Anonymouse.ShowAuthorName');
+		$NewName = Null;
+		switch ($ShowAuthorName) {
+			case 1: $Format = '%1$s'; break; // Anonymous
+			case 2: $Format = '%2$s'; break; // ex. John
+			case 3: $NewName = T('Anonymous'); // Localized 'Anonymous' string
+			default: $Format = '%1$s %2$s'; break; // ex. Anonymous John
+		}
+		if ($NewName === Null) $NewName = sprintf($Format, $AnonymousUserName, $AnonymousInfo->Name);
+		// TODO: OTHER PERMISSION NAME TO SHOW IP
+		if ($bCanViewIp === Null) $bCanViewIp = CheckPermission('Garden.Users.Edit');
+		if ($bCanViewIp) {
+			$Ip = long2ip($AnonymousInfo->IntIp);
+			if ($Ip) $NewName .= ' (' . $Ip .')';
+		}
+		
+		return $NewName;
+	}
+	
+	
+	public function GetAnonymousUserID() {
+		if ($this->AnonymousUserID === Null) 
+			$this->AnonymousUserID = Gdn::Config('Plugins.Anonymouse.AnonymousUserID', 0);
+		return $this->AnonymousUserID;
+	}
+	
 	/* =============================== HOOKS */
 	
 	public function PostController_BeforeFormInputs_Handler($Sender) {
@@ -204,58 +252,18 @@ class AnonymousePlugin extends Gdn_Plugin {
 		echo Wrap($AnonymousFormInputs, 'div', array('AnonymousFormInputs'));
 	}
 	
-	
-/*	protected function ReplaceAnonymousName($Type, $Object, $Author = Null) {
-		if ($Type == 'Comment') $AnonymousData =& $this->AnonymousCommentData;
-		elseif ($Type == 'Discussion') $AnonymousData =& $this->AnonymousDiscussionData;
-		if ($Author) {
+	public function DiscussionsController_Render_Before($Sender) {
+		if (!isset($Sender->DiscussionData)) return;
+		$this->AnonymousDiscussionData = $this->GetAnonymousDiscussionData($Sender->DiscussionData);
+		foreach($Sender->DiscussionData as $Discussion) {
+			$this->ReplaceAnonymousNameForDiscussion($Discussion);
 		}
-	}*/
-	
-	public function DiscussionController_BeforeCommentMeta_Handler($Sender) {
-		$Author = $Sender->EventArguments['Author'];
-		$Object = $Sender->EventArguments['Object'];
-		$Type = $Sender->EventArguments['Type'];
-		if ($Type == 'Comment') {
-			if (array_key_exists($Object->CommentID, $this->AnonymousCommentData)) {
-				$Anonymous = $this->AnonymousCommentData[$Object->CommentID];
-				//$Author->UserID = -PHP_INT_MAX;
-				// Change username Anonymous to Anonymous X
-				$Author->Name = sprintf('%s %s', $Author->Name, $Anonymous->Name);
-			}
-		} elseif ($Type == 'Discussion') {
-			if (array_key_exists($Object->DiscussionID, $this->AnonymousDiscussionData)) {
-				$Anonymous = $this->AnonymousDiscussionData[$Object->DiscussionID];
-				$Author->Name = sprintf('%s %s', $Author->Name, $Anonymous->Name);
-			}
-		}
-	}
-	
-	// Discussion List
-	// TODO: CONFIG AuthorName
-/*	public function DiscussionsController_Render_Before($Sender) {
-		$this->CategoriesController_Render_Before($Sender);
 	}
 	
 	public function CategoriesController_Render_Before($Sender) {
-		if (!C('Plugins.Anonymouse.AuthorName')) return;
-		
-		if (!isset($Sender->DiscussionData) || !is_object($Sender->DiscussionData)) return;
-		
-		$DiscussionIDs = ConsolidateArrayValuesByKey($Sender->DiscussionData->ResultObject(), 'DiscussionID');
-		$this->AnonymousDiscussionData = $this->GetAnonymousDiscussionData($DiscussionIDs);
-		
-		if ($this->AnonymousUserID === Null) 
-			$this->AnonymousUserID = Gdn::Config('Plugins.Anonymouse.AnonymousUserID', 0);
-		$AnonymousUserID = $this->AnonymousUserID;
-		
-		foreach($Sender->DiscussionData->ResultObject() as $Discussion) {
-			if ($AnonymousUserID == $Discussion->FirstUserID) {
-				$AuthorName = GetValueR($Discussion->DiscussionID.'.Name', $this->AnonymousDiscussionData);
-				$Discussion->FirstName = sprintf('%2$s %1$s', $AuthorName, $Discussion->FirstName);
-			}
-		}
-	}*/
+		$this->DiscussionsController_Render_Before($Sender);
+	}
+
 	
 	public function DiscussionController_Render_Before($Sender) {
 		$Session = Gdn::Session();
@@ -263,6 +271,9 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$this->AnonymousCommentData = $this->GetAnonymousCommentData($Sender->CommentData);
 		$DiscussionID = GetValueR('Discussion.DiscussionID', $Sender);
 		$this->AnonymousDiscussionData = $this->GetAnonymousDiscussionData($DiscussionID);
+		
+		foreach ($Sender->CommentData as $Comment) $this->ReplaceAnonymousNameForComment($Comment);
+		$this->ReplaceAnonymousNameForDiscussion($Sender->Discussion, 'Insert');
 		
 		$Permission = C('Plugins.Anonymouse.Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
 		$Session->SetPermission('Vanilla.Comments.Add', $Permission);
@@ -297,12 +308,10 @@ class AnonymousePlugin extends Gdn_Plugin {
 			$Form = $Sender->Form;
 			
 			$RequestMethod = strtolower($Sender->RequestMethod);
-			if ($RequestMethod == 'discussion' || $RequestMethod == 'anonymousdiscussion') {
+			if ($RequestMethod == 'discussion') {
 				$Form->InputPrefix = 'Discussion';
 				$DiscussionModel = $Sender->DiscussionModel;
 				if ($Form->ButtonExists('Post Discussion')) {
-					
-					
 					
 					// TODO: FIX ME, SAME CODE FOR COMMENT
 					$this->PostValues = $Form->FormValues();
@@ -357,8 +366,8 @@ class AnonymousePlugin extends Gdn_Plugin {
 
 				$this->BecomeAnonymousUser();
 				$Sender->CommentModel->SpamCheck = False;
-				// Save vanilla comment
 				
+				// Save vanilla comment
 				// BUG: fatal error for first comment for discussion
 				// https://github.com/vanillaforums/Garden/issues/issue/699
 				// TODO: WAIT FOR FIX
@@ -385,7 +394,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$EnabledApplication = $Sender->EventArguments['EnabledApplication'];
 		if ($EnabledApplication == 'Vanilla') {
 			include_once dirname(__FILE__) . '/modules/class.newanonymousdiscussionmodule.php';
-			$this->bInitialized = True;
+			//$this->bInitialized = True;
 		}
 	}
 	
