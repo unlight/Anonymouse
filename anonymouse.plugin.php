@@ -4,7 +4,7 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.2.10',
+	'Version' => '2.2.11',
 	'Date' => '4 Jan 2010',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
@@ -17,7 +17,7 @@ $PluginInfo['Anonymouse'] = array(
 CONFIG:
 $Configuration['Plugins']['Anonymouse']['Category'] = array(1,2);
 $Configuration['Plugins']['Anonymouse']['AnonymousUserID'] = 0; // UserID
-$Configuration['Plugins']['Anonymouse']['ShowAuthorName'] = ?;
+$Configuration['Plugins']['Anonymouse']['ShowAuthorName'] = 0;
 How to show anonymous name:
 0 - default, ex. Anonymous John
 1 - name of garden's anonymous user, ex. Anonymous
@@ -25,24 +25,19 @@ How to show anonymous name:
 3 - Localized 'Anonymous' string
 
 TODO: 
-Preview
 FIX: NO PERMISSION TO VIEW, ANYWAY CAN POST
-
 
 */
 
 if (!function_exists('UserAnchor')) {
 	function UserAnchor($User, $CssClass = '') {
 		static $AnonymousUserID;
-		if ($AnonymousUserID === Null) 
-			$AnonymousUserID = Gdn::Config('Plugins.Anonymouse.AnonymousUserID', 0);
-		if ($CssClass != '') $CssClass = ' class="'.$CssClass.'"';
-
+		if ($AnonymousUserID === Null) $AnonymousUserID = AnonymousePlugin::StaticGetAnonymousUserID();
 		if ($AnonymousUserID == $User->UserID) {
 			// TODO: FIX ME, $CssClass is lost here
 			return $User->Name;
 		}
-		
+		if ($CssClass != '') $CssClass = ' class="'.$CssClass.'"';
 		return '<a href="'.Url('/profile/'.$User->UserID.'/'.urlencode($User->Name)).'"'.$CssClass.'>'.$User->Name.'</a>';
 	}
 }
@@ -67,6 +62,11 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	protected $AnonymousCommentData = array();
 	protected $AnonymousDiscussionData = array();
+	
+	public static StaticGetAnonymousUserID() {
+		$Self = Gdn::PluginManager()->GetPluginInstance(__CLASS__);
+		return $Self->GetAnonymousUserID();
+	}
 	
 	/* =============================== CONTROLLER */
 	
