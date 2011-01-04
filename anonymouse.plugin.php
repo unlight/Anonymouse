@@ -4,7 +4,7 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.2.9',
+	'Version' => '2.2.10',
 	'Date' => '4 Jan 2010',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
@@ -189,6 +189,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$Session->User->HourOffset = 0;
 		$Session->User->Name = 'Anonymous';
 		$Session->User->CountNotifications = 0;
+		$Session->User->Photo = '';
 	}
 	
 	protected function ResetCaptchaKey() {
@@ -308,9 +309,39 @@ class AnonymousePlugin extends Gdn_Plugin {
 			$Form = $Sender->Form;
 			
 			$RequestMethod = strtolower($Sender->RequestMethod);
+
 			if ($RequestMethod == 'discussion') {
 				$Form->InputPrefix = 'Discussion';
 				$DiscussionModel = $Sender->DiscussionModel;
+				
+				if ($Form->ButtonExists('Preview')) {
+					
+					$Sender->Discussion = new stdClass();
+					$Sender->Discussion->Name = $Form->GetValue('Name', '');
+					$Sender->Comment = new stdClass();
+					$Sender->Comment->InsertUserID = 0;
+					$Sender->Comment->InsertName = $Form->GetFormValue('YourName', 'Anonymous');
+					$Sender->Comment->InsertPhoto = '';
+					$Sender->Comment->DateInserted = Gdn_Format::Date();
+					$Sender->Comment->Body = $Form->GetFormValue('Body', '');
+            
+/*					try {
+						// Too dangerous to fire this event, we can catch some errors
+						//$Sender->FireEvent('BeforeDiscussionPreview');
+						// Oh. Cant fire anyway, getting fatal error: Allowed memory size of 134217728 bytes exhausted
+					} catch (Exception $Ex) {
+						// TODO: SHOW ERRORS
+					}*/
+					
+					// TODO: TEST PREVIEW IF JAVASCRIPT IS DISABLED
+					if ($Sender->DeliveryType() != DELIVERY_TYPE_ALL) {
+						$Sender->View = 'preview';
+						return $Sender->Render();
+					}
+					//$Sender->AddAsset('Content', $Sender->FetchView('preview'));
+
+				}
+
 				if ($Form->ButtonExists('Post Discussion')) {
 					
 					// TODO: FIX ME, SAME CODE FOR COMMENT
@@ -348,21 +379,34 @@ class AnonymousePlugin extends Gdn_Plugin {
 						$Sender->StatusMessage = $Form->Errors();
 					}
 				}
-				// TODO: Preview
 			} elseif ($RequestMethod == 'comment') {
 				$Form->InputPrefix = 'Comment';
 				
-				{
-					$this->PostValues = $Form->FormValues();
-					$this->CookieName($this->PostValues);
+				$this->PostValues = $Form->FormValues();
+
+				$this->CookieName($this->PostValues);
+				
+				if ($Form->ButtonExists('MyPreview') || GetIncomingValue('Type') == 'Preview') {
+					$Sender->Comment = new stdClass();
+					$Sender->Comment->InsertUserID = 0;
+					$Sender->Comment->InsertName = $Form->GetFormValue('YourName', 'Anonymous');
+					$Sender->Comment->InsertPhoto = '';
+					$Sender->Comment->DateInserted = Gdn_Format::Date();
+					$Sender->Comment->Body = $Form->GetFormValue('Body', '');
 					
-					$CaptchaCode = ArrayValue('CaptchaCode', $this->PostValues);
-					$CaptchaKey = ArrayValue('CaptchaKey', $_SESSION);
-					$bValidCaptcha = ($CaptchaKey && $CaptchaKey == $CaptchaCode);
-					
-					if (!$bValidCaptcha)
-						$Sender->CommentModel->Validation->AddValidationResult('Captcha', '%s: Invalid code from image');
+					// TODO: TEST PREVIEW IF JAVASCRIPT IS DISABLED
+					if ($Sender->DeliveryType() != DELIVERY_TYPE_ALL) {
+						$Sender->View = 'preview';
+						return $Sender->Render();
+					}
 				}
+				
+				$CaptchaCode = ArrayValue('CaptchaCode', $this->PostValues);
+				$CaptchaKey = ArrayValue('CaptchaKey', $_SESSION);
+				$bValidCaptcha = ($CaptchaKey && $CaptchaKey == $CaptchaCode);
+				
+				if (!$bValidCaptcha)
+					$Sender->CommentModel->Validation->AddValidationResult('Captcha', '%s: Invalid code from image');
 
 				$this->BecomeAnonymousUser();
 				$Sender->CommentModel->SpamCheck = False;
