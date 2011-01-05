@@ -4,8 +4,8 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.2.11',
-	'Date' => '4 Jan 2010',
+	'Version' => '2.3.12',
+	'Date' => '24 Jan 2010',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
 	//'RequiredPlugins' => array('Morf' => '*'),
@@ -63,7 +63,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	protected $AnonymousCommentData = array();
 	protected $AnonymousDiscussionData = array();
 	
-	public static StaticGetAnonymousUserID() {
+	public static function StaticGetAnonymousUserID() {
 		$Self = Gdn::PluginManager()->GetPluginInstance(__CLASS__);
 		return $Self->GetAnonymousUserID();
 	}
@@ -151,8 +151,16 @@ class AnonymousePlugin extends Gdn_Plugin {
 		return $Result;
 	}
 	
+	protected static function IpAddress($Ip = Null) {
+		if ($Ip !== Null) {
+			if (!$Ip) return $Ip;
+			return (is_numeric($Ip)) ? long2ip($Ip) : ip2long($Ip);
+		}
+		return sprintf('%u', self::IpAddress(RemoteIp()));
+	}
+	
 	protected function Save($ObjectID, $FormValues, $Type) {
-		$Fields['IntIp'] = ip2long(RemoteIp());
+		$Fields['IntIp'] = self::IpAddress();
 		$Name = trim(Gdn_Format::Text(ArrayValue('YourName', $FormValues)));
 		if (in_array($Name, array('Your name', T('Your name')))) $Name = Null;
 		if (!$Name) $Name = Null;
@@ -166,8 +174,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		if ($Name === Null) return ArrayValue('YourName', $_COOKIE);
 		if (!is_string($Name)) $Name = (string) GetValue('YourName', $Name);
 		// 100% cpu usage here?.. why
-		//setcookie('YourName', $Name, PHP_INT_MAX, '/');
-		setcookie('YourName', $Name, 2147483647, '/');
+		setcookie('YourName', $Name, strtotime('+1 year'), '/');
 	}
 	
 	protected function BecomeUnAuthenticatedUser() {
@@ -225,7 +232,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		// TODO: OTHER PERMISSION NAME TO SHOW IP
 		if ($bCanViewIp === Null) $bCanViewIp = CheckPermission('Garden.Users.Edit');
 		if ($bCanViewIp) {
-			$Ip = long2ip($AnonymousInfo->IntIp);
+			$Ip = self::IpAddress($AnonymousInfo->IntIp);
 			if ($Ip) $NewName .= ' (' . $Ip .')';
 		}
 		
@@ -444,19 +451,45 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	/* ============================== SETUP */
 	
+	// update from version 2.2.X
+	public function UtilityController_AnonymousePluginStructure_Create($Sender) {
+		$Sender->Permission('Garden.Settings.Manage');
+		$this->Structure();
+		Redirect('dashboard/settings/plugins');
+	}
+	
 	public function Structure() {
+		$Explicit = False;
+		$Construct = Gdn::Structure();
+		$SQL = Gdn::SQL();
+		$Prefix = $SQL->Database->DatabasePrefix;
+		foreach(array('AnonymousComment', 'AnonymousDiscussion') as $TableName) {
+			$TableSchema = False;
+			try {
+				$TableSchema = $SQL->FetchTableSchema($TableName);
+			} catch (Exception $Exception) {
+			}
+			if ($TableSchema == False) continue;
+			if (GetValueR('IntIp.Unsigned', $TableSchema) == True) continue;
+			$Construct->Query("alter table {$Prefix}$TableName add column _IntIp int(10) unsigned null after IntIp");
+			$Construct->Query("update {$Prefix}$TableName set _IntIp = convert(IntIp, unsigned integer)");
+			$Construct->Query("alter table {$Prefix}$TableName change column IntIp IntIp int(10) unsigned not null after Name");
+			$Construct->Query("update {$Prefix}$TableName set IntIp = _IntIp");
+			$Construct->Query("alter table {$Prefix}$TableName drop column _IntIp");
+		}
+
 		Gdn::Structure()
 			->Table('AnonymousComment')
 			->Column('CommentID', 'uint', False, 'primary')
 			->Column('Name', 'varchar(30)', True)
-			->Column('IntIp', 'int')
-			->Set();
+			->Column('IntIp', 'uint')
+			->Set($Explicit);
 		Gdn::Structure()
 			->Table('AnonymousDiscussion')
 			->Column('DiscussionID', 'uint', False, 'primary')
 			->Column('Name', 'varchar(30)', True)
-			->Column('IntIp', 'int')
-			->Set();
+			->Column('IntIp', 'uint')
+			->Set($Explicit);
 	}
 	
 	public function Setup(){
