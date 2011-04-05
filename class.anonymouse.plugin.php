@@ -4,8 +4,8 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.3.12',
-	'Date' => '24 Jan 2010',
+	'Version' => '2.4.14',
+	'Date' => '9 Apr 2011',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
 	//'RequiredPlugins' => array('Morf' => '*'),
@@ -301,6 +301,8 @@ class AnonymousePlugin extends Gdn_Plugin {
 	}
 
 	public function PostController_All_Handler($Sender) {
+		if (!isset($Sender->Category)) $Sender->Category = NULL;
+		if (!isset($Sender->ShowCategorySelector)) $Sender->ShowCategorySelector = NULL;
 		
 		$Session = Gdn::Session();
 		if ($Session->IsValid()) return;
