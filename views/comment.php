@@ -21,18 +21,14 @@ if (!$Session->CheckPermission('Vanilla.Comment.Add')) {
 // TODO: ADD OTHER FIELD EMAIL OR URL
 
 $AnonymousFormInputs = '';
+if (!AnonymousePlugin::Config('NoCaptha')) {
+	$CapthaImage = Img($this->CaptchaImageSource);
+	$CapthaInput = $this->Form->TextBox('CaptchaCode', array('placeholder' => T('Code from image')));
+	$AnonymousFormInputs .= Wrap($CapthaImage . $CapthaInput, 'div', array('id' => 'CaptchaBox'));
+}				
 
-$CaptchaImageSource = $this->CaptchaImageSource;
-//$AnonymousFormInputs = $this->Form->TextBox('YourName', array('placeholder' => T('Your name')));
-$AnonymousFormInputs = Wrap(Img($CaptchaImageSource)
-	. $this->Form->TextBox('CaptchaCode', array('placeholder' => T('Code from image'))),
-	'div', array('id' => 'CaptchaBox')
-);
-
-echo Wrap($this->Form->TextBox('YourName', array('placeholder' => 'Your name')).$AnonymousFormInputs,
-	'div', array('class' => 'YourName'));
-
-
+$YourNameBox = $this->Form->TextBox('YourName', array('placeholder' => 'Your name'));
+echo Wrap($YourNameBox.$AnonymousFormInputs, 'div', array('class' => 'YourName'));
 
 echo $this->Form->TextBox('Body', $CommentOptions);
 //d($this->Form);
