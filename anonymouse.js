@@ -5,7 +5,8 @@ jQuery(document).ready(function(){
 		var imagesrc = gdn.definition('WebRoot', '/') + '/plugins/Anonymouse/captcha/imagettfbox.php' + '?' + Math.random();
 		imagesrc = imagesrc.replace(/^:\/\//, "/");
 		// TODO: WAITING FOR BUG FIX https://github.com/vanillaforums/Garden/issues/859
-		$('#CaptchaBox img').first().attr('src', imagesrc);
+		var $img = $('#CaptchaBox img');
+		if ($img.length > 0) $img.first().attr('src', imagesrc);
 	});
 	
 	$('#Form_Comment div.Preview').livequery(function(){
