@@ -4,7 +4,7 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.4.14',
+	'Version' => '2.4.15',
 	'Date' => '9 Apr 2011',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
@@ -15,6 +15,8 @@ $PluginInfo['Anonymouse'] = array(
 /* =======================
 
 CONFIG:
+$Configuration['Plugins']['Anonymouse']['NoCaptha'] = False;
+// Default: False, to disable captcha set option to True.
 $Configuration['Plugins']['Anonymouse']['Category'] = array(1,2);
 $Configuration['Plugins']['Anonymouse']['AnonymousUserID'] = 0; // UserID
 $Configuration['Plugins']['Anonymouse']['ShowAuthorName'] = 0;
@@ -62,6 +64,14 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	protected $AnonymousCommentData = array();
 	protected $AnonymousDiscussionData = array();
+	
+	/* static methods */
+	
+	public static function Config($Name, $Default = False) {
+		static $AnonymousConfiguration;
+		if ($AnonymousConfiguration === NULL) $AnonymousConfiguration = C('Plugins.Anonymouse');
+		return GetValue($Name, $AnonymousConfiguration, $Default);
+	}
 	
 	public static function StaticGetAnonymousUserID() {
 		$Self = Gdn::PluginManager()->GetPluginInstance(__CLASS__);
@@ -242,7 +252,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	public function GetAnonymousUserID() {
 		if ($this->AnonymousUserID === Null) 
-			$this->AnonymousUserID = Gdn::Config('Plugins.Anonymouse.AnonymousUserID', 0);
+			$this->AnonymousUserID = C('Plugins.Anonymouse.AnonymousUserID', 0);
 		return $this->AnonymousUserID;
 	}
 	
@@ -252,11 +262,11 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$Session = Gdn::Session();
 		if ($Session->IsValid()) return;
 		$AnonymousFormInputs = $Sender->Form->TextBox('YourName', array('placeholder' => T('Your name')));
-		$AnonymousFormInputs .= Wrap(Img('plugins/Anonymouse/captcha/imagettfbox.php')
-			. $Sender->Form->TextBox('CaptchaCode', array('placeholder' => T('Code from image'))),
-			'div', array('id' => 'CaptchaBox')
-		);
-				
+		if (!self::Config('NoCaptha')) {
+			$CapthaImage = Img('plugins/Anonymouse/captcha/imagettfbox.php');
+			$CapthaInput = $Sender->Form->TextBox('CaptchaCode', array('placeholder' => T('Code from image')));
+			$AnonymousFormInputs .= Wrap($CapthaImage . $CapthaInput, 'div', array('id' => 'CaptchaBox'));
+		}				
 		echo Wrap($AnonymousFormInputs, 'div', array('AnonymousFormInputs'));
 	}
 	
@@ -357,12 +367,10 @@ class AnonymousePlugin extends Gdn_Plugin {
 					$this->PostValues = $Form->FormValues();
 					$this->CookieName($this->PostValues);
 					
-					$CaptchaCode = ArrayValue('CaptchaCode', $this->PostValues);
-					$CaptchaKey = ArrayValue('CaptchaKey', $_SESSION);
-					$bValidCaptcha = ($CaptchaKey && $CaptchaKey == $CaptchaCode);
-					
-					if (!$bValidCaptcha)
-						$DiscussionModel->Validation->AddValidationResult('Captcha', '%s: Invalid code from image');
+					if (!self::Config('NoCaptha')) {
+						$bValidCaptcha = $this->IsCapthaValid();
+						if (!$bValidCaptcha) $DiscussionModel->Validation->AddValidationResult('Captcha', '%s: Invalid code from image');
+					}
 					
 					$Sender->CategoryID = ArrayValue('CategoryID', $this->PostValues, 0);
 					
@@ -410,12 +418,10 @@ class AnonymousePlugin extends Gdn_Plugin {
 					}
 				}
 				
-				$CaptchaCode = ArrayValue('CaptchaCode', $this->PostValues);
-				$CaptchaKey = ArrayValue('CaptchaKey', $_SESSION);
-				$bValidCaptcha = ($CaptchaKey && $CaptchaKey == $CaptchaCode);
-				
-				if (!$bValidCaptcha)
-					$Sender->CommentModel->Validation->AddValidationResult('Captcha', '%s: Invalid code from image');
+				if (!self::Config('NoCaptha')) {
+					$bValidCaptcha = $this->IsCapthaValid();
+					if (!$bValidCaptcha) $Sender->CommentModel->Validation->AddValidationResult('Captcha', '%s: Invalid code from image');
+				}
 
 				$this->BecomeAnonymousUser();
 				$Sender->CommentModel->SpamCheck = False;
@@ -441,6 +447,13 @@ class AnonymousePlugin extends Gdn_Plugin {
 			// Reset captcha key for discussion and comment
 			$this->ResetCaptchaKey();
 		}
+	}
+	
+	protected function IsCapthaValid() {
+		$CaptchaCode = ArrayValue('CaptchaCode', $this->PostValues);
+		$CaptchaKey = ArrayValue('CaptchaKey', $_SESSION);
+		$bValidCaptcha = ($CaptchaKey && $CaptchaKey == $CaptchaCode);
+		return $bValidCaptcha;
 	}
 	
 	public function Gdn_Dispatcher_BeforeControllerMethod_Handler($Sender) {
@@ -496,7 +509,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	public function Setup(){
 		//$UserModel = Gdn::UserModel();
-		$AnonymousUserID = Gdn::Config('Plugins.Anonymouse.AnonymousUserID', 0);
+		$AnonymousUserID = C('Plugins.Anonymouse.AnonymousUserID', 0);
 
 		if (!$AnonymousUserID) {
 			$Fields = array('Name' => 'Anonymous', 'DateInserted' => Gdn_Format::ToDateTime(), 'Password' => '', 'Email' => '');
