@@ -59,7 +59,7 @@ if (!function_exists('PromoteKey')) {
 class AnonymousePlugin extends Gdn_Plugin {
 	
 	protected $PostValues;
-	//protected $bInitialized;
+	protected $bInitialized;
 	protected $AnonymousUserID;
 	
 	protected $AnonymousCommentData = array();
@@ -198,7 +198,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$AnonymousUserID = $this->GetAnonymousUserID();
 		$Session = Gdn::Session();
 		if ($Session->IsValid()) return;
-		// TODO: $Session->User = Gdn_Dummy(); // may be useful
+		// $Session->User = Gdn_Dummy(); // may be useful
 		$Session->UserID = $AnonymousUserID;
 		$Session->User = new StdClass(); // for php < 5.3 
 		$Session->User->UserID = $AnonymousUserID;
@@ -267,13 +267,13 @@ class AnonymousePlugin extends Gdn_Plugin {
 			$CapthaInput = $Sender->Form->TextBox('CaptchaCode', array('placeholder' => T('Code from image')));
 			$AnonymousFormInputs .= Wrap($CapthaImage . $CapthaInput, 'div', array('id' => 'CaptchaBox'));
 		}				
-		echo Wrap($AnonymousFormInputs, 'div', array('AnonymousFormInputs'));
+		echo Wrap($AnonymousFormInputs, 'div');
 	}
 	
 	public function DiscussionsController_Render_Before($Sender) {
 		if (!isset($Sender->DiscussionData)) return;
 		$this->AnonymousDiscussionData = $this->GetAnonymousDiscussionData($Sender->DiscussionData);
-		foreach($Sender->DiscussionData as $Discussion) {
+		foreach ($Sender->DiscussionData as $Discussion) {
 			$this->ReplaceAnonymousNameForDiscussion($Discussion);
 		}
 	}
@@ -309,6 +309,41 @@ class AnonymousePlugin extends Gdn_Plugin {
 			$Sender->AddAsset('Content', $CommentFormHtml);
 		}
 	}
+	
+/*	public function DiscussionController_Render_Before($Sender) {
+		
+		$Session = Gdn::Session();
+		if (empty($Sender->CommentData)) return;
+		$this->AnonymousCommentData = $this->GetAnonymousCommentData($Sender->CommentData);
+		$DiscussionID = GetValueR('Discussion.DiscussionID', $Sender);
+		$this->AnonymousDiscussionData = $this->GetAnonymousDiscussionData($DiscussionID);
+		
+		foreach ($Sender->CommentData as $Comment) $this->ReplaceAnonymousNameForComment($Comment);
+		$this->ReplaceAnonymousNameForDiscussion($Sender->Discussion, 'Insert');
+	}*/
+	
+/*	public function DiscussionController_AfterDiscussion_Handler(&$Sender) {
+
+		$Session = Gdn::Session();
+		if (empty($Sender->CommentData)) return;
+				
+		$Permission = C('Plugins.Anonymouse.Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
+		$Session->SetPermission('Vanilla.Comments.Add', $Permission);
+		$AddCommentsPermission = $Session->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $Sender->CategoryID);
+		
+		if (!$Session->IsValid() && $AddCommentsPermission) {
+			
+			$Sender->AddCssFile('plugins/Anonymouse/anonymouse.css');
+			$Sender->AddJsFile('plugins/Anonymouse/anonymouse.js');
+			
+			$Sender->Form->SetValue('YourName', $this->CookieName());
+			$Sender->CaptchaImageSource = 'plugins/Anonymouse/captcha/imagettfbox.php';
+			$View = $this->GetView('comment.php');
+			$CommentFormHtml = $Sender->FetchView($View);
+			//$Sender->AddAsset('DiscussionAfter', $CommentFormHtml);
+			echo $CommentFormHtml;
+		}
+	}*/
 
 	public function PostController_All_Handler($Sender) {
 		if (!isset($Sender->Category)) $Sender->Category = NULL;
@@ -404,7 +439,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 				$this->CookieName($this->PostValues);
 				
 				if ($Form->ButtonExists('MyPreview') || GetIncomingValue('Type') == 'Preview') {
-					$Sender->Comment = new stdClass();
+					$Sender->Comment = new StdClass();
 					$Sender->Comment->InsertUserID = 0;
 					$Sender->Comment->InsertName = $Form->GetFormValue('YourName', 'Anonymous');
 					$Sender->Comment->InsertPhoto = '';
@@ -427,9 +462,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 				$Sender->CommentModel->SpamCheck = False;
 				
 				// Save vanilla comment
-				// BUG: fatal error for first comment for discussion
-				// https://github.com/vanillaforums/Garden/issues/issue/699
-				// TODO: WAIT FOR FIX
 				
 				$CommentID = $Sender->CommentModel->Save($this->PostValues);
 				$this->BecomeUnAuthenticatedUser();
@@ -460,7 +492,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$EnabledApplication = $Sender->EventArguments['EnabledApplication'];
 		if ($EnabledApplication == 'Vanilla') {
 			include_once dirname(__FILE__) . '/modules/class.newanonymousdiscussionmodule.php';
-			//$this->bInitialized = True;
 		}
 	}
 	
