@@ -4,7 +4,7 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.4.16',
+	'Version' => '2.4.17',
 	'Date' => '2 May 2011',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
@@ -75,7 +75,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	public static function Config($Name, $Default = False) {
 		static $AnonymousConfiguration;
 		if ($AnonymousConfiguration === NULL) $AnonymousConfiguration = C('Plugins.Anonymouse');
-		return GetValue($Name, $AnonymousConfiguration, $Default);
+		return GetValueR($Name, $AnonymousConfiguration, $Default);
 	}
 	
 	public static function StaticGetAnonymousUserID() {
