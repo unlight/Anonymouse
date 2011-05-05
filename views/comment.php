@@ -2,11 +2,6 @@
 
 <div class="MessageForm CommentForm AnonymousCommentForm">
 <?php
-//d($this->Form);
-//d();d($this->Form->GetValue('Name'));
-// TODO: HTML5 Storage Session , FIN PLUGIN
-//$this->Form->SetFormValue('Body', $this->Comment->Body);
-// TODO: /post/anonymouscomment ? [HOLD]
 echo $this->Form->Open();
 echo $this->Form->Errors();
 $CommentOptions = array('MultiLine' => True);
@@ -31,7 +26,6 @@ $YourNameBox = $this->Form->TextBox('YourName', array('placeholder' => 'Your nam
 echo Wrap($YourNameBox.$AnonymousFormInputs, 'div', array('class' => 'YourName'));
 
 echo $this->Form->TextBox('Body', $CommentOptions);
-//d($this->Form);
 echo "<div class=\"Buttons\">\n";
 //$this->FireEvent('BeforeFormButtons');
 $CancelText = 'Back to Discussions';
