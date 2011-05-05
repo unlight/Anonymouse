@@ -1,5 +1,5 @@
 Anonymouse = {
-	SaveDraftTimer: 8000
+	SaveDraftTimer: 15000
 }; // TODO: CONFIG
 
 jQuery(document).ready(function(){
