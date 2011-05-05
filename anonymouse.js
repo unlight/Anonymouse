@@ -1,14 +1,20 @@
-jQuery(document).ready(function(){
+Anonymouse = {
+	SaveDraftTimer: 8000
+}; // TODO: CONFIG
 
+jQuery(document).ready(function(){
+	
+	// PREVENT BUG: https://github.com/vanillaforums/Garden/issues/859
+	var WebRoot = gdn.combinePaths(gdn.definition('WebRoot', '/'), '/');
+	
 	// 1. Update captcha if post fails
 	$("div.Errors > ul").livequery(function(){
-		var imagesrc = gdn.definition('WebRoot', '/') + '/plugins/Anonymouse/captcha/imagettfbox.php' + '?' + Math.random();
-		imagesrc = imagesrc.replace(/^:\/\//, "/");
-		// TODO: WAITING FOR BUG FIX https://github.com/vanillaforums/Garden/issues/859
+		var imagesrc = WebRoot + 'plugins/Anonymouse/captcha/imagettfbox.php' + '?' + Math.random();
 		var $img = $('#CaptchaBox img');
 		if ($img.length > 0) $img.first().attr('src', imagesrc);
 	});
 	
+	// 2. Preview
 	$('#Form_Comment div.Preview').livequery(function(){
 		var sender = this;
 		// copy from applications/vanilla/js/discussion.js
@@ -23,7 +29,27 @@ jQuery(document).ready(function(){
 		$(this).click(resetCommentForm);
 	});
 	
+	// 3. Save draft (using localStorage if available)
+	var DiscussionID = gdn.definition('DiscussionID', false);
+	var AnonymousCommentForm = $('.AnonymousCommentForm').first();
+	var FormBody = $('#Form_Body', AnonymousCommentForm);
+	var Anonymouse_SaveDraft = function() {
+		var text = $.jStorage.get('Discussion_'+DiscussionID, '');
+		if (text != FormBody.val()) {
+			$.jStorage.set('Discussion_'+DiscussionID, FormBody.val());
+			gdn.inform('Draft saved …');
+		}
+		setTimeout(Anonymouse_SaveDraft, Anonymouse.SaveDraftTimer);
+	}
 
-
+	if (DiscussionID && AnonymousCommentForm.size() > 0) {
+		$.getScript(WebRoot + 'plugins/Anonymouse/vendors/jStorage/jstorage.min.js', function(){
+			if ($.jStorage.storageAvailable()) {
+				DiscussionDraft = $.jStorage.get('Discussion_'+DiscussionID, '');
+				if (typeof(DiscussionDraft) == 'string' && DiscussionDraft.length > 0) FormBody.val(DiscussionDraft);
+				setTimeout(Anonymouse_SaveDraft, Anonymouse.SaveDraftTimer);
+			}
+		});
+	}
 	
 });
