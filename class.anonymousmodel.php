@@ -6,13 +6,25 @@ class AnonymousModel extends Gdn_Model {
 #  		parent::__construct('AnonymousComment');
 #  	}
 	
+	public static function StaticSave($ObjectID, $FormValues, $Type) {
+		$Fields['IntIp'] = RealIpAddress();
+		$Name = trim(Gdn_Format::Text(ArrayValue('YourName', $FormValues)));
+		if (in_array($Name, array('Your name', T('Your name')))) $Name = Null;
+		if (!$Name) $Name = Null;
+		$Fields['Name'] = $Name;
+		$Type = ucfirst(strtolower($Type));
+		$Fields[$Type.'ID'] = $ObjectID;
+		return Gdn::SQL()->Insert('Anonymous'.$Type, $Fields);
+	}
+	
 	public static function GetCommentData($CommentData) {
 		if ($CommentData instanceof Gdn_DataSet) 
 			$CommentData = ConsolidateArrayValuesByKey($CommentData->ResultObject(), 'CommentID');
+		if (!is_array($CommentData)) $CommentData = array($CommentData);
 		$DataSet = Gdn::SQL()
 			->Select()
 			->From('AnonymousComment')
-			->WhereIn('CommentID', (array)$CommentData)
+			->WhereIn('CommentID', $CommentData)
 			->Get()
 			->Result();
 		$Result = PromoteKey($DataSet, 'CommentID');

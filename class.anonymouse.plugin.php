@@ -61,6 +61,21 @@ if (!function_exists('PromoteKey')) {
 	}
 }
 
+if (!function_exists('RealIpAddress')) {
+	function RealIpAddress($Ip = Null) {
+		if (is_null($Ip)) {
+			foreach(array('HTTP_CLIENT_IP','HTTP_X_FORWARDED_FOR','HTTP_X_FORWARDED','HTTP_X_CLUSTER_CLIENT_IP','HTTP_FORWARDED_FOR','HTTP_FORWARDED','REMOTE_ADDR') as $Key) {
+				if (isset($_SERVER[$Key])) {
+					list ($Ip) = explode(',', $_SERVER[$Key]);
+					break;
+				}
+			}
+		}
+		if (!$Ip) return $Ip;
+		return (is_numeric($Ip)) ? long2ip($Ip) : ip2long($Ip);
+	}
+}
+
 class AnonymousePlugin extends Gdn_Plugin {
 	
 	protected $PostValues;
@@ -142,25 +157,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	/* =============================== MODEL */
 	
-	protected static function IpAddress($Ip = Null) {
-		if ($Ip !== Null) {
-			if (!$Ip) return $Ip;
-			return (is_numeric($Ip)) ? long2ip($Ip) : ip2long($Ip);
-		}
-		return sprintf('%u', self::IpAddress(RemoteIp()));
-	}
-	
-	protected function Save($ObjectID, $FormValues, $Type) {
-		$Fields['IntIp'] = self::IpAddress();
-		$Name = trim(Gdn_Format::Text(ArrayValue('YourName', $FormValues)));
-		if (in_array($Name, array('Your name', T('Your name')))) $Name = Null;
-		if (!$Name) $Name = Null;
-		$Fields['Name'] = $Name;
-		$Type = ucfirst(strtolower($Type));
-		$Fields[$Type.'ID'] = $ObjectID;
-		return Gdn::SQL()->Insert('Anonymous'.$Type, $Fields);
-	}
-	
 	protected function CookieName($Name = Null) {
 		if ($Name === Null) return ArrayValue('YourName', $_COOKIE);
 		if (!is_string($Name)) $Name = (string) GetValue('YourName', $Name);
@@ -223,7 +219,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		// TODO: OTHER PERMISSION NAME TO SHOW IP
 		if ($bCanViewIp === Null) $bCanViewIp = CheckPermission('Garden.Users.Edit');
 		if ($bCanViewIp) {
-			$Ip = self::IpAddress($AnonymousInfo->IntIp);
+			$Ip = RealIpAddress($AnonymousInfo->IntIp);
 			if ($Ip) $NewName .= ' (' . $Ip .')';
 		}
 		
@@ -376,7 +372,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 					$DiscussionID = $DiscussionModel->Save($this->PostValues);
 					$this->BecomeUnAuthenticatedUser();
 					if ($DiscussionID != False ) {
-						$this->Save($DiscussionID, $this->PostValues, 'Discussion');
+						AnonymousModel::StaticSave($DiscussionID, $this->PostValues, 'Discussion');
 						$Sender->RedirectUrl = Url('/discussion/'.$DiscussionID);
 						if ($Sender->DeliveryType() == DELIVERY_TYPE_ALL) Redirect($Sender->RedirectUrl);
 						$Sender->Render();
@@ -413,12 +409,11 @@ class AnonymousePlugin extends Gdn_Plugin {
 				$CommentModel->SpamCheck = False;
 				
 				// Save vanilla comment
-				
 				$CommentID = $CommentModel->Save($this->PostValues);
 				$this->BecomeUnAuthenticatedUser();
 				if ($CommentID != False) {
 					// Save anonymous comment
-					$this->Save($CommentID, $this->PostValues, 'Comment');
+					AnonymousModel::StaticSave($CommentID, $this->PostValues, 'Comment');
 					$Sender->RedirectUrl = Url("discussion/comment/$CommentID/#Comment_$CommentID");
 					if ($Sender->DeliveryType() == DELIVERY_TYPE_ALL) Redirect($Sender->RedirectUrl);
 					$Sender->Render();				
@@ -446,8 +441,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 			include_once dirname(__FILE__) . '/modules/class.newanonymousdiscussionmodule.php';
 		}
 	}
-	
-	/* ============================== SETUP */
 	
 	// update from version 2.2.X
 	// utility/anonymousepluginstructure
@@ -489,6 +482,19 @@ class AnonymousePlugin extends Gdn_Plugin {
 			->Column('Name', 'varchar(30)', True)
 			->Column('IntIp', 'uint')
 			->Set($Explicit);
+	}
+	
+	public function Setup(){
+		$AnonymousUserID = C('Plugins.Anonymouse.AnonymousUserID', 0);
+
+		if (!$AnonymousUserID) {
+			$Fields = array('Name' => 'Anonymous', 'DateInserted' => Gdn_Format::ToDateTime(), 'Password' => '', 'Email' => '');
+			$AnonymousUserID = (int) Gdn::SQL()->Insert('User', $Fields);
+			if ($AnonymousUserID > 0) 
+				SaveToConfig('Plugins.Anonymouse.AnonymousUserID', $AnonymousUserID);
+		}
+		
+		$this->Structure();
 		
 		// Someone says that the comment form is appearing above the thread for anonymous users.
 		// Need to configure sorting modules: 
@@ -521,20 +527,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 			file_put_contents($ConfigFile, $PhpArrayCode, FILE_APPEND | LOCK_EX);
 		}
 	}
-	
-	public function Setup(){
-		$AnonymousUserID = C('Plugins.Anonymouse.AnonymousUserID', 0);
-
-		if (!$AnonymousUserID) {
-			$Fields = array('Name' => 'Anonymous', 'DateInserted' => Gdn_Format::ToDateTime(), 'Password' => '', 'Email' => '');
-			$AnonymousUserID = (int) Gdn::SQL()->Insert('User', $Fields);
-			if ($AnonymousUserID > 0) 
-				SaveToConfig('Plugins.Anonymouse.AnonymousUserID', $AnonymousUserID);
-		}
-		
-		$this->Structure();
-		
-	}
 }
 	
+
 
