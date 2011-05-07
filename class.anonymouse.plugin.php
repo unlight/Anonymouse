@@ -186,7 +186,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$Session->User->Photo = '';
 	}
 	
-	protected function ResetCaptchaKey() {
+	public static function ResetCaptchaKey() {
 		$_SESSION['CaptchaKey'] = Null;
 	}
 	
@@ -207,7 +207,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	protected function GetAnonymousName($AnonymousUserName, $AnonymousInfo) {
 		static $bCanViewIp, $ShowAuthorName;
-		if ($ShowAuthorName === Null) $ShowAuthorName = C('Plugins.Anonymouse.ShowAuthorName');
+		if ($ShowAuthorName === Null) $ShowAuthorName = self::Config('ShowAuthorName');
 		$NewName = Null;
 		switch ($ShowAuthorName) {
 			case 1: $Format = '%1$s'; break; // Anonymous
