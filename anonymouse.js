@@ -9,7 +9,7 @@ jQuery(document).ready(function(){
 	
 	// 1. Update captcha if post fails
 	$("div.Errors > ul").livequery(function(){
-		var imagesrc = WebRoot + 'plugins/Anonymouse/captcha/imagettfbox.php' + '?' + Math.random();
+		var imagesrc = gdn.combinePaths(WebRoot, '/plugins/Anonymouse/captcha/imagettfbox.php' + '?' + Math.random());
 		var $img = $('#CaptchaBox img');
 		if ($img.length > 0) $img.first().attr('src', imagesrc);
 	});
@@ -29,7 +29,8 @@ jQuery(document).ready(function(){
 		$(this).click(resetCommentForm);
 	});
 	
-	// 3. Save draft (using localStorage if available)
+	// TODO: Save draft for discussion
+	// 3. Save draft (using localStorage if available) http://www.jstorage.info/
 	var DiscussionID = gdn.definition('DiscussionID', false);
 	var AnonymousCommentForm = $('.AnonymousCommentForm').first();
 	var FormBody = $('#Form_Body', AnonymousCommentForm);
@@ -43,13 +44,20 @@ jQuery(document).ready(function(){
 	}
 
 	if (DiscussionID && AnonymousCommentForm.size() > 0) {
-		$.getScript(WebRoot + 'plugins/Anonymouse/vendors/jStorage/jstorage.min.js', function(){
+		var ScriptURL = gdn.combinePaths(WebRoot, '/plugins/Anonymouse/vendors/jStorage/jstorage.min.js');
+		$.getScript(ScriptURL, function(){
 			if ($.jStorage.storageAvailable()) {
 				DiscussionDraft = $.jStorage.get('Discussion_'+DiscussionID, '');
-				if (typeof(DiscussionDraft) == 'string' && DiscussionDraft.length > 0) FormBody.val(DiscussionDraft);
+				if (typeof(DiscussionDraft) == 'string' && DiscussionDraft.length > 1) FormBody.val(DiscussionDraft);
 				setTimeout(Anonymouse_SaveDraft, Anonymouse.SaveDraftTimer);
+				
+				// Delete draft
+				$("#Form_PostComment").click(function(){
+					$.jStorage.deleteKey('Discussion_'+DiscussionID);
+				});				
 			}
 		});
 	}
+
 	
 });
