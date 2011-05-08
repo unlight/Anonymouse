@@ -1,7 +1,7 @@
 <?php if (!defined('APPLICATION')) exit();
 
 $PluginInfo['Anonymouse'] = array(
-	'Name' => 'Anonymouse 2',
+	'Name' => 'Anonymouse',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
 	'Version' => '2.5.19',
