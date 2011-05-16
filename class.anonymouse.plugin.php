@@ -4,12 +4,12 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse 2',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.4.17',
-	'Date' => '2 May 2011',
+	'Version' => '2.4.15',
+	'Date' => '9 Apr 2011',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
 	//'RequiredPlugins' => array('Morf' => '*'),
-	'AuthorUrl' => 'https://github.com/search?q=Anonymouse'
+	'AuthorUrl' => False
 );
 
 /* =======================
@@ -25,11 +25,6 @@ How to show anonymous name:
 1 - name of garden's anonymous user, ex. Anonymous
 2 - Name which choosed by author, ex. John 
 3 - Localized 'Anonymous' string
-
-// NOTE:
-Someone says that the comment form is appearing above the thread for anonymous users.
-If so, try to edit config (add this line if it is not exists)
-$Configuration['Modules']['Vanilla']['Content'] = array('Content', 'AnonymousCommentForm');
 
 TODO: 
 FIX: NO PERMISSION TO VIEW, ANYWAY CAN POST
@@ -75,7 +70,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	public static function Config($Name, $Default = False) {
 		static $AnonymousConfiguration;
 		if ($AnonymousConfiguration === NULL) $AnonymousConfiguration = C('Plugins.Anonymouse');
-		return GetValueR($Name, $AnonymousConfiguration, $Default);
+		return GetValue($Name, $AnonymousConfiguration, $Default);
 	}
 	
 	public static function StaticGetAnonymousUserID() {
@@ -116,8 +111,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 		$CategoryModel = new Gdn_Model('Category');
 		$Sender->CategoryData = $CategoryModel->GetWhere(array('AllowDiscussions' => 1));
-		
-		$Sender->AnonymouseCategory = self::Config('Category');
+		$Sender->AnonymouseCategory = C('Plugins.Anonymouse.Category');
 
 		$Sender->View = $this->GetView('settings.php');
 		$Sender->Render();
@@ -133,7 +127,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		
 		if (strtolower($Sender->RequestMethod) == 'discussion') {
 			$CategoryModel = new Gdn_Model('Category');
-			$Permission = self::Config('Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
+			$Permission = C('Plugins.Anonymouse.Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
 			$CategoryModel->SQL->WhereIn('CategoryID', $Permission);
 			$Sender->CategoryData = $CategoryModel->GetWhere(array('AllowDiscussions' => 1));
 		}
@@ -276,10 +270,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 		echo Wrap($AnonymousFormInputs, 'div');
 	}
 	
-	public function CategoriesController_Render_Before($Sender) {
-		$this->DiscussionsController_Render_Before($Sender);
-	}
-	
 	public function DiscussionsController_Render_Before($Sender) {
 		if (!isset($Sender->DiscussionData)) return;
 		$this->AnonymousDiscussionData = $this->GetAnonymousDiscussionData($Sender->DiscussionData);
@@ -287,6 +277,11 @@ class AnonymousePlugin extends Gdn_Plugin {
 			$this->ReplaceAnonymousNameForDiscussion($Discussion);
 		}
 	}
+	
+	public function CategoriesController_Render_Before($Sender) {
+		$this->DiscussionsController_Render_Before($Sender);
+	}
+
 	
 	public function DiscussionController_Render_Before($Sender) {
 		$Session = Gdn::Session();
@@ -298,7 +293,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		foreach ($Sender->CommentData as $Comment) $this->ReplaceAnonymousNameForComment($Comment);
 		$this->ReplaceAnonymousNameForDiscussion($Sender->Discussion, 'Insert');
 		
-		$Permission = self::Config('Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
+		$Permission = C('Plugins.Anonymouse.Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
 		$Session->SetPermission('Vanilla.Comments.Add', $Permission);
 		$AddCommentsPermission = $Session->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $Sender->CategoryID);
 		
@@ -311,10 +306,45 @@ class AnonymousePlugin extends Gdn_Plugin {
 			$Sender->CaptchaImageSource = 'plugins/Anonymouse/captcha/imagettfbox.php';
 			$View = $this->GetView('comment.php');
 			$CommentFormHtml = $Sender->FetchView($View);
-			$Sender->AddAsset('Content', $CommentFormHtml, 'AnonymousCommentForm');
+			$Sender->AddAsset('Content', $CommentFormHtml);
 		}
 	}
 	
+/*	public function DiscussionController_Render_Before($Sender) {
+		
+		$Session = Gdn::Session();
+		if (empty($Sender->CommentData)) return;
+		$this->AnonymousCommentData = $this->GetAnonymousCommentData($Sender->CommentData);
+		$DiscussionID = GetValueR('Discussion.DiscussionID', $Sender);
+		$this->AnonymousDiscussionData = $this->GetAnonymousDiscussionData($DiscussionID);
+		
+		foreach ($Sender->CommentData as $Comment) $this->ReplaceAnonymousNameForComment($Comment);
+		$this->ReplaceAnonymousNameForDiscussion($Sender->Discussion, 'Insert');
+	}*/
+	
+/*	public function DiscussionController_AfterDiscussion_Handler(&$Sender) {
+
+		$Session = Gdn::Session();
+		if (empty($Sender->CommentData)) return;
+				
+		$Permission = C('Plugins.Anonymouse.Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
+		$Session->SetPermission('Vanilla.Comments.Add', $Permission);
+		$AddCommentsPermission = $Session->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $Sender->CategoryID);
+		
+		if (!$Session->IsValid() && $AddCommentsPermission) {
+			
+			$Sender->AddCssFile('plugins/Anonymouse/anonymouse.css');
+			$Sender->AddJsFile('plugins/Anonymouse/anonymouse.js');
+			
+			$Sender->Form->SetValue('YourName', $this->CookieName());
+			$Sender->CaptchaImageSource = 'plugins/Anonymouse/captcha/imagettfbox.php';
+			$View = $this->GetView('comment.php');
+			$CommentFormHtml = $Sender->FetchView($View);
+			//$Sender->AddAsset('DiscussionAfter', $CommentFormHtml);
+			echo $CommentFormHtml;
+		}
+	}*/
+
 	public function PostController_All_Handler($Sender) {
 		if (!isset($Sender->Category)) $Sender->Category = NULL;
 		if (!isset($Sender->ShowCategorySelector)) $Sender->ShowCategorySelector = NULL;
@@ -323,7 +353,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		if ($Session->IsValid()) return;
 		if ($this->PostValues !== Null) return;
 		
-		$Permission = self::Config('Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
+		$Permission = C('Plugins.Anonymouse.Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
 		$Session->SetPermission('Vanilla.Comments.Add', $Permission);
 		$Session->SetPermission('Vanilla.Discussions.Add');
 		
@@ -525,3 +555,10 @@ class AnonymousePlugin extends Gdn_Plugin {
 }
 	
 
+
+
+
+
+
+
+// workspace
