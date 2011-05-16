@@ -11,4 +11,4 @@ Version 2.5 (16 May 2011)
 - added draft feature (using HTML5 LocalStorage)
 
 Version 2.4 (9 Apr 2011)
-- added NoCaptha config option
+- added NoCaptcha config option
