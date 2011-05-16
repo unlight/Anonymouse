@@ -5,7 +5,8 @@ Anonymous posting. Allow post comment and create discussions anonymously.
 CHANGLOG
 ========
 
-Version 2.5 (7 May 2011)
+Version 2.5 (16 May 2011)
+- fixed config typo
 - fixed comment form is appearing above the thread
 - added draft feature (using HTML5 LocalStorage)
 

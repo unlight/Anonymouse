@@ -4,8 +4,8 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.5.19',
-	'Date' => '7 May 2011',
+	'Version' => '2.5.20',
+	'Date' => '16 May 2011',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
 	//'RequiredPlugins' => array('Morf' => '*'),
@@ -15,7 +15,7 @@ $PluginInfo['Anonymouse'] = array(
 /* =======================
 
 CONFIG:
-$Configuration['Plugins']['Anonymouse']['NoCaptha'] = False;
+$Configuration['Plugins']['Anonymouse']['NoCaptcha'] = False;
 // Default: False, to disable captcha set option to True.
 $Configuration['Plugins']['Anonymouse']['Category'] = array(1,2);
 $Configuration['Plugins']['Anonymouse']['AnonymousUserID'] = 0; // UserID
@@ -89,7 +89,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	public static function Config($Name, $Default = False) {
 		static $AnonymousConfiguration;
-		if ($AnonymousConfiguration === NULL) $AnonymousConfiguration = C('Plugins.Anonymouse');
+		if ($AnonymousConfiguration === Null) $AnonymousConfiguration = C('Plugins.Anonymouse');
 		return GetValueR($Name, $AnonymousConfiguration, $Default);
 	}
 	
@@ -238,7 +238,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	// TODO: ADD OTHER FIELD EMAIL OR URL
 	public static function FormInputs($Sender) {
 		$CapthaBox = '';
-		if (!self::Config('NoCaptha')) {
+		if (!self::Config('NoCaptcha')) {
 			$CapthaImage = Img('plugins/Anonymouse/captcha/imagettfbox.php');
 			$CapthaInput = $Sender->Form->TextBox('CaptchaCode', array('placeholder' => T('Code from image')));
 			$CapthaBox .= Wrap($CapthaImage . $CapthaInput, 'div', array('id' => 'CaptchaBox'));
@@ -268,10 +268,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 		}
 	}
 	
-	public static function CaptchaImageSource() {
-		return 'plugins/Anonymouse/captcha/imagettfbox.php';
-	}
-	
 	public function DiscussionController_Render_Before($Sender) {
 		if (empty($Sender->CommentData)) return;
 		$Session = Gdn::Session();
@@ -284,7 +280,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		
 		$Permission = self::Config('Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
 		$Session->SetPermission('Vanilla.Comments.Add', $Permission);
-		$AddCommentsPermission = $Session->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $Sender->CategoryID);
+		$AddCommentsPermission = $Session->CheckPermission('Vanilla.Comments.Add', True, 'Category', $Sender->CategoryID);
 		
 		if (!$Session->IsValid() && $AddCommentsPermission) {
 			
@@ -292,7 +288,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 			$Sender->AddJsFile('plugins/Anonymouse/anonymouse.js');
 			
 			$Sender->Form->SetValue('YourName', $this->CookieName());
-			$Sender->CaptchaImageSource = self::CaptchaImageSource();
+			$Sender->CaptchaImageSource = 'plugins/Anonymouse/captcha/imagettfbox.php';
 			$View = $this->GetView('comment.php');
 			$CommentFormHtml = $Sender->FetchView($View);
 			$Sender->AddAsset('Content', $CommentFormHtml, 'AnonymousCommentForm');
@@ -428,7 +424,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	}
 	
 	protected function IsCapthaValid() {
-		if (self::Config('NoCaptha')) return True;
+		if (self::Config('NoCaptcha')) return True;
 		$CaptchaCode = ArrayValue('CaptchaCode', $this->PostValues);
 		$CaptchaKey = ArrayValue('CaptchaKey', $_SESSION);
 		$bValidCaptcha = ($CaptchaKey && $CaptchaKey == $CaptchaCode);
