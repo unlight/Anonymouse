@@ -1,21 +1,21 @@
 <?php if (!defined('APPLICATION')) exit();
 
 $PluginInfo['Anonymouse'] = array(
-	'Name' => 'Anonymouse 2',
+	'Name' => 'Anonymouse',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.4.15',
-	'Date' => '9 Apr 2011',
+	'Version' => '2.5.20',
+	'Date' => '16 May 2011',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
 	//'RequiredPlugins' => array('Morf' => '*'),
-	'AuthorUrl' => False
+	'AuthorUrl' => 'https://github.com/search?q=Anonymouse'
 );
 
 /* =======================
 
 CONFIG:
-$Configuration['Plugins']['Anonymouse']['NoCaptha'] = False;
+$Configuration['Plugins']['Anonymouse']['NoCaptcha'] = False;
 // Default: False, to disable captcha set option to True.
 $Configuration['Plugins']['Anonymouse']['Category'] = array(1,2);
 $Configuration['Plugins']['Anonymouse']['AnonymousUserID'] = 0; // UserID
@@ -25,6 +25,11 @@ How to show anonymous name:
 1 - name of garden's anonymous user, ex. Anonymous
 2 - Name which choosed by author, ex. John 
 3 - Localized 'Anonymous' string
+
+// NOTE:
+Someone says that the comment form is appearing above the thread for anonymous users.
+If so, try to edit config (add this line if it is not exists)
+$Configuration['Modules']['Vanilla']['Content'] = array('Content', 'AnonymousCommentForm');
 
 TODO: 
 FIX: NO PERMISSION TO VIEW, ANYWAY CAN POST
@@ -48,11 +53,26 @@ if (!function_exists('UserAnchor')) {
 if (!function_exists('PromoteKey')) {
 	function PromoteKey($Collection, $PromotedKey) {
 		$Result = array();
-		foreach($Collection as $Data) {
+		foreach ($Collection as $Data) {
 			$K = GetValue($PromotedKey, $Data);
 			$Result[$K] = $Data;
 		}
 		return $Result;
+	}
+}
+
+if (!function_exists('RealIpAddress')) {
+	function RealIpAddress($Ip = Null) {
+		if (is_null($Ip)) {
+			foreach(array('HTTP_CLIENT_IP','HTTP_X_FORWARDED_FOR','HTTP_X_FORWARDED','HTTP_X_CLUSTER_CLIENT_IP','HTTP_FORWARDED_FOR','HTTP_FORWARDED','REMOTE_ADDR') as $Key) {
+				if (isset($_SERVER[$Key])) {
+					list ($Ip) = explode(',', $_SERVER[$Key]);
+					break;
+				}
+			}
+		}
+		if (!$Ip) return $Ip;
+		return (is_numeric($Ip)) ? long2ip($Ip) : ip2long($Ip);
 	}
 }
 
@@ -69,8 +89,8 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	public static function Config($Name, $Default = False) {
 		static $AnonymousConfiguration;
-		if ($AnonymousConfiguration === NULL) $AnonymousConfiguration = C('Plugins.Anonymouse');
-		return GetValue($Name, $AnonymousConfiguration, $Default);
+		if ($AnonymousConfiguration === Null) $AnonymousConfiguration = C('Plugins.Anonymouse');
+		return GetValueR($Name, $AnonymousConfiguration, $Default);
 	}
 	
 	public static function StaticGetAnonymousUserID() {
@@ -111,7 +131,8 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 		$CategoryModel = new Gdn_Model('Category');
 		$Sender->CategoryData = $CategoryModel->GetWhere(array('AllowDiscussions' => 1));
-		$Sender->AnonymouseCategory = C('Plugins.Anonymouse.Category');
+		
+		$Sender->AnonymouseCategory = self::Config('Category');
 
 		$Sender->View = $this->GetView('settings.php');
 		$Sender->Render();
@@ -127,7 +148,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		
 		if (strtolower($Sender->RequestMethod) == 'discussion') {
 			$CategoryModel = new Gdn_Model('Category');
-			$Permission = C('Plugins.Anonymouse.Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
+			$Permission = self::Config('Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
 			$CategoryModel->SQL->WhereIn('CategoryID', $Permission);
 			$Sender->CategoryData = $CategoryModel->GetWhere(array('AllowDiscussions' => 1));
 		}
@@ -135,50 +156,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 	}
 	
 	/* =============================== MODEL */
-	
-	protected function GetAnonymousCommentData($CommentData) {
-		if ($CommentData instanceof Gdn_DataSet) 
-			$CommentData = ConsolidateArrayValuesByKey($CommentData->ResultObject(), 'CommentID');
-		$DataSet = Gdn::SQL()
-			->Select()
-			->From('AnonymousComment')
-			->WhereIn('CommentID', (array)$CommentData)
-			->Get();
-		$Result = PromoteKey($DataSet, 'CommentID');
-		return $Result;
-	}
-	
-	protected function GetAnonymousDiscussionData($Reference) {
-		if ($Reference instanceof Gdn_DataSet) 
-			$Reference = ConsolidateArrayValuesByKey($Reference->ResultObject(), 'DiscussionID');
-		if (!is_array($Reference)) $Reference = array($Reference);
-		$DataSet = Gdn::SQL()
-			->Select()
-			->From('AnonymousDiscussion')
-			->WhereIn('DiscussionID', $Reference)
-			->Get();
-		$Result = PromoteKey($DataSet, 'DiscussionID');
-		return $Result;
-	}
-	
-	protected static function IpAddress($Ip = Null) {
-		if ($Ip !== Null) {
-			if (!$Ip) return $Ip;
-			return (is_numeric($Ip)) ? long2ip($Ip) : ip2long($Ip);
-		}
-		return sprintf('%u', self::IpAddress(RemoteIp()));
-	}
-	
-	protected function Save($ObjectID, $FormValues, $Type) {
-		$Fields['IntIp'] = self::IpAddress();
-		$Name = trim(Gdn_Format::Text(ArrayValue('YourName', $FormValues)));
-		if (in_array($Name, array('Your name', T('Your name')))) $Name = Null;
-		if (!$Name) $Name = Null;
-		$Fields['Name'] = $Name;
-		$Type = ucfirst(strtolower($Type));
-		$Fields[$Type.'ID'] = $ObjectID;
-		return Gdn::SQL()->Insert('Anonymous'.$Type, $Fields);
-	}
 	
 	protected function CookieName($Name = Null) {
 		if ($Name === Null) return ArrayValue('YourName', $_COOKIE);
@@ -209,7 +186,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$Session->User->Photo = '';
 	}
 	
-	protected function ResetCaptchaKey() {
+	public static function ResetCaptchaKey() {
 		$_SESSION['CaptchaKey'] = Null;
 	}
 	
@@ -230,7 +207,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	protected function GetAnonymousName($AnonymousUserName, $AnonymousInfo) {
 		static $bCanViewIp, $ShowAuthorName;
-		if ($ShowAuthorName === Null) $ShowAuthorName = C('Plugins.Anonymouse.ShowAuthorName');
+		if ($ShowAuthorName === Null) $ShowAuthorName = self::Config('ShowAuthorName');
 		$NewName = Null;
 		switch ($ShowAuthorName) {
 			case 1: $Format = '%1$s'; break; // Anonymous
@@ -242,7 +219,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		// TODO: OTHER PERMISSION NAME TO SHOW IP
 		if ($bCanViewIp === Null) $bCanViewIp = CheckPermission('Garden.Users.Edit');
 		if ($bCanViewIp) {
-			$Ip = self::IpAddress($AnonymousInfo->IntIp);
+			$Ip = RealIpAddress($AnonymousInfo->IntIp);
 			if ($Ip) $NewName .= ' (' . $Ip .')';
 		}
 		
@@ -256,80 +233,54 @@ class AnonymousePlugin extends Gdn_Plugin {
 		return $this->AnonymousUserID;
 	}
 	
+	
+	// Render.
+	// TODO: ADD OTHER FIELD EMAIL OR URL
+	public static function FormInputs($Sender) {
+		$CapthaBox = '';
+		if (!self::Config('NoCaptcha')) {
+			$CapthaImage = Img('plugins/Anonymouse/captcha/imagettfbox.php');
+			$CapthaInput = $Sender->Form->TextBox('CaptchaCode', array('placeholder' => T('Code from image')));
+			$CapthaBox .= Wrap($CapthaImage . $CapthaInput, 'div', array('id' => 'CaptchaBox'));
+		}
+		$YourNameBox = $Sender->Form->TextBox('YourName', array('placeholder' => 'Your name'));
+		$AnonymousFormInputs = Wrap($YourNameBox.$CapthaBox, 'div', array('class' => 'AnonymousFormInputs'));
+		return $AnonymousFormInputs;
+	}
+	
 	/* =============================== HOOKS */
 	
 	public function PostController_BeforeFormInputs_Handler($Sender) {
 		$Session = Gdn::Session();
 		if ($Session->IsValid()) return;
-		$AnonymousFormInputs = $Sender->Form->TextBox('YourName', array('placeholder' => T('Your name')));
-		if (!self::Config('NoCaptha')) {
-			$CapthaImage = Img('plugins/Anonymouse/captcha/imagettfbox.php');
-			$CapthaInput = $Sender->Form->TextBox('CaptchaCode', array('placeholder' => T('Code from image')));
-			$AnonymousFormInputs .= Wrap($CapthaImage . $CapthaInput, 'div', array('id' => 'CaptchaBox'));
-		}				
-		echo Wrap($AnonymousFormInputs, 'div');
-	}
-	
-	public function DiscussionsController_Render_Before($Sender) {
-		if (!isset($Sender->DiscussionData)) return;
-		$this->AnonymousDiscussionData = $this->GetAnonymousDiscussionData($Sender->DiscussionData);
-		foreach ($Sender->DiscussionData as $Discussion) {
-			$this->ReplaceAnonymousNameForDiscussion($Discussion);
-		}
+		echo self::FormInputs($Sender);
 	}
 	
 	public function CategoriesController_Render_Before($Sender) {
 		$this->DiscussionsController_Render_Before($Sender);
 	}
-
 	
-	public function DiscussionController_Render_Before($Sender) {
-		$Session = Gdn::Session();
-		if (empty($Sender->CommentData)) return;
-		$this->AnonymousCommentData = $this->GetAnonymousCommentData($Sender->CommentData);
-		$DiscussionID = GetValueR('Discussion.DiscussionID', $Sender);
-		$this->AnonymousDiscussionData = $this->GetAnonymousDiscussionData($DiscussionID);
-		
-		foreach ($Sender->CommentData as $Comment) $this->ReplaceAnonymousNameForComment($Comment);
-		$this->ReplaceAnonymousNameForDiscussion($Sender->Discussion, 'Insert');
-		
-		$Permission = C('Plugins.Anonymouse.Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
-		$Session->SetPermission('Vanilla.Comments.Add', $Permission);
-		$AddCommentsPermission = $Session->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $Sender->CategoryID);
-		
-		if (!$Session->IsValid() && $AddCommentsPermission) {
-			
-			$Sender->AddCssFile('plugins/Anonymouse/anonymouse.css');
-			$Sender->AddJsFile('plugins/Anonymouse/anonymouse.js');
-			
-			$Sender->Form->SetValue('YourName', $this->CookieName());
-			$Sender->CaptchaImageSource = 'plugins/Anonymouse/captcha/imagettfbox.php';
-			$View = $this->GetView('comment.php');
-			$CommentFormHtml = $Sender->FetchView($View);
-			$Sender->AddAsset('Content', $CommentFormHtml);
+	public function DiscussionsController_Render_Before($Sender) {
+		if (!isset($Sender->DiscussionData)) return;
+		$this->AnonymousDiscussionData = AnonymousModel::GetDiscussionData($Sender->DiscussionData);
+		foreach ($Sender->DiscussionData as $Discussion) {
+			$this->ReplaceAnonymousNameForDiscussion($Discussion);
 		}
 	}
 	
-/*	public function DiscussionController_Render_Before($Sender) {
-		
-		$Session = Gdn::Session();
+	public function DiscussionController_Render_Before($Sender) {
 		if (empty($Sender->CommentData)) return;
-		$this->AnonymousCommentData = $this->GetAnonymousCommentData($Sender->CommentData);
+		$Session = Gdn::Session();
+		$this->AnonymousCommentData = AnonymousModel::GetCommentData($Sender->CommentData);
 		$DiscussionID = GetValueR('Discussion.DiscussionID', $Sender);
-		$this->AnonymousDiscussionData = $this->GetAnonymousDiscussionData($DiscussionID);
+		$this->AnonymousDiscussionData = AnonymousModel::GetDiscussionData($DiscussionID);
 		
 		foreach ($Sender->CommentData as $Comment) $this->ReplaceAnonymousNameForComment($Comment);
 		$this->ReplaceAnonymousNameForDiscussion($Sender->Discussion, 'Insert');
-	}*/
-	
-/*	public function DiscussionController_AfterDiscussion_Handler(&$Sender) {
-
-		$Session = Gdn::Session();
-		if (empty($Sender->CommentData)) return;
-				
-		$Permission = C('Plugins.Anonymouse.Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
+		
+		$Permission = self::Config('Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
 		$Session->SetPermission('Vanilla.Comments.Add', $Permission);
-		$AddCommentsPermission = $Session->CheckPermission('Vanilla.Comments.Add', TRUE, 'Category', $Sender->CategoryID);
+		$AddCommentsPermission = $Session->CheckPermission('Vanilla.Comments.Add', True, 'Category', $Sender->CategoryID);
 		
 		if (!$Session->IsValid() && $AddCommentsPermission) {
 			
@@ -340,11 +291,10 @@ class AnonymousePlugin extends Gdn_Plugin {
 			$Sender->CaptchaImageSource = 'plugins/Anonymouse/captcha/imagettfbox.php';
 			$View = $this->GetView('comment.php');
 			$CommentFormHtml = $Sender->FetchView($View);
-			//$Sender->AddAsset('DiscussionAfter', $CommentFormHtml);
-			echo $CommentFormHtml;
+			$Sender->AddAsset('Content', $CommentFormHtml, 'AnonymousCommentForm');
 		}
-	}*/
-
+	}
+	
 	public function PostController_All_Handler($Sender) {
 		if (!isset($Sender->Category)) $Sender->Category = NULL;
 		if (!isset($Sender->ShowCategorySelector)) $Sender->ShowCategorySelector = NULL;
@@ -353,7 +303,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		if ($Session->IsValid()) return;
 		if ($this->PostValues !== Null) return;
 		
-		$Permission = C('Plugins.Anonymouse.Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
+		$Permission = self::Config('Category', ArrayValue('Vanilla.Discussions.View', $Session->GetPermissions()));
 		$Session->SetPermission('Vanilla.Comments.Add', $Permission);
 		$Session->SetPermission('Vanilla.Discussions.Add');
 		
@@ -384,7 +334,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 						//$Sender->FireEvent('BeforeDiscussionPreview');
 						// Oh. Cant fire anyway, getting fatal error: Allowed memory size of 134217728 bytes exhausted
 					} catch (Exception $Ex) {
-						// TODO: SHOW ERRORS
 					}*/
 					
 					// TODO: TEST PREVIEW IF JAVASCRIPT IS DISABLED
@@ -402,10 +351,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 					$this->PostValues = $Form->FormValues();
 					$this->CookieName($this->PostValues);
 					
-					if (!self::Config('NoCaptha')) {
-						$bValidCaptcha = $this->IsCapthaValid();
-						if (!$bValidCaptcha) $DiscussionModel->Validation->AddValidationResult('Captcha', '%s: Invalid code from image');
-					}
+					if (!$this->IsCapthaValid()) $DiscussionModel->Validation->AddValidationResult('Captcha', T('Plugins.Anonymous.InvalidCaptchaCode', '%s: Invalid code from image.'));
 					
 					$Sender->CategoryID = ArrayValue('CategoryID', $this->PostValues, 0);
 					
@@ -422,7 +368,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 					$DiscussionID = $DiscussionModel->Save($this->PostValues);
 					$this->BecomeUnAuthenticatedUser();
 					if ($DiscussionID != False ) {
-						$this->Save($DiscussionID, $this->PostValues, 'Discussion');
+						AnonymousModel::StaticSave($DiscussionID, $this->PostValues, 'Discussion');
 						$Sender->RedirectUrl = Url('/discussion/'.$DiscussionID);
 						if ($Sender->DeliveryType() == DELIVERY_TYPE_ALL) Redirect($Sender->RedirectUrl);
 						$Sender->Render();
@@ -433,10 +379,9 @@ class AnonymousePlugin extends Gdn_Plugin {
 				}
 			} elseif ($RequestMethod == 'comment') {
 				$Form->InputPrefix = 'Comment';
-				
 				$this->PostValues = $Form->FormValues();
-
 				$this->CookieName($this->PostValues);
+				$CommentModel = $Sender->CommentModel;
 				
 				if ($Form->ButtonExists('MyPreview') || GetIncomingValue('Type') == 'Preview') {
 					$Sender->Comment = new StdClass();
@@ -453,26 +398,23 @@ class AnonymousePlugin extends Gdn_Plugin {
 					}
 				}
 				
-				if (!self::Config('NoCaptha')) {
-					$bValidCaptcha = $this->IsCapthaValid();
-					if (!$bValidCaptcha) $Sender->CommentModel->Validation->AddValidationResult('Captcha', '%s: Invalid code from image');
-				}
+				if (!$this->IsCapthaValid()) 
+					$CommentModel->Validation->AddValidationResult('Captcha', T('Plugins.Anonymous.InvalidCaptchaCode', '%s: Invalid code from image.'));
 
 				$this->BecomeAnonymousUser();
-				$Sender->CommentModel->SpamCheck = False;
+				$CommentModel->SpamCheck = False;
 				
 				// Save vanilla comment
-				
-				$CommentID = $Sender->CommentModel->Save($this->PostValues);
+				$CommentID = $CommentModel->Save($this->PostValues);
 				$this->BecomeUnAuthenticatedUser();
 				if ($CommentID != False) {
 					// Save anonymous comment
-					$this->Save($CommentID, $this->PostValues, 'Comment');
+					AnonymousModel::StaticSave($CommentID, $this->PostValues, 'Comment');
 					$Sender->RedirectUrl = Url("discussion/comment/$CommentID/#Comment_$CommentID");
 					if ($Sender->DeliveryType() == DELIVERY_TYPE_ALL) Redirect($Sender->RedirectUrl);
 					$Sender->Render();				
 				} else {
-					$Form->SetValidationResults( $Sender->CommentModel->ValidationResults() );
+					$Form->SetValidationResults( $CommentModel->ValidationResults() );
 					$Sender->StatusMessage = $Form->Errors();
 				}
 			}
@@ -482,6 +424,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 	}
 	
 	protected function IsCapthaValid() {
+		if (self::Config('NoCaptcha')) return True;
 		$CaptchaCode = ArrayValue('CaptchaCode', $this->PostValues);
 		$CaptchaKey = ArrayValue('CaptchaKey', $_SESSION);
 		$bValidCaptcha = ($CaptchaKey && $CaptchaKey == $CaptchaCode);
@@ -495,9 +438,8 @@ class AnonymousePlugin extends Gdn_Plugin {
 		}
 	}
 	
-	/* ============================== SETUP */
-	
 	// update from version 2.2.X
+	// utility/anonymousepluginstructure
 	public function UtilityController_AnonymousePluginStructure_Create($Sender) {
 		$Sender->Permission('Garden.Settings.Manage');
 		$this->Structure();
@@ -509,7 +451,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$Construct = Gdn::Structure();
 		$SQL = Gdn::SQL();
 		$Prefix = $SQL->Database->DatabasePrefix;
-		foreach(array('AnonymousComment', 'AnonymousDiscussion') as $TableName) {
+		foreach (array('AnonymousComment', 'AnonymousDiscussion') as $TableName) {
 			$TableSchema = False;
 			try {
 				$TableSchema = $SQL->FetchTableSchema($TableName);
@@ -523,7 +465,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 			$Construct->Query("update {$Prefix}$TableName set IntIp = _IntIp");
 			$Construct->Query("alter table {$Prefix}$TableName drop column _IntIp");
 		}
-
+		
 		Gdn::Structure()
 			->Table('AnonymousComment')
 			->Column('CommentID', 'uint', False, 'primary')
@@ -539,7 +481,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 	}
 	
 	public function Setup(){
-		//$UserModel = Gdn::UserModel();
 		$AnonymousUserID = C('Plugins.Anonymouse.AnonymousUserID', 0);
 
 		if (!$AnonymousUserID) {
@@ -551,14 +492,38 @@ class AnonymousePlugin extends Gdn_Plugin {
 		
 		$this->Structure();
 		
+		// Someone says that the comment form is appearing above the thread for anonymous users.
+		// Need to configure sorting modules: 
+		// $Configuration['Modules']['Vanilla']['Content'] = array('Content', 'AnonymousCommentForm');
+		// 'AnonymousCommentForm' after 'Content'
+		
+		$ModulesVanillaContentSort = C('Modules.Vanilla.Content');
+		if (!is_array($ModulesVanillaContentSort)) $ModulesVanillaContentSort = array();
+		$AnonymousCommentFormKey = array_search('AnonymousCommentForm', $ModulesVanillaContentSort);
+		// AssetName found - do nothing.
+		if ($AnonymousCommentFormKey === False) {
+			$ModulesVanillaContentSort = array_values($ModulesVanillaContentSort);
+			$ContentKey = array_search('Content', $ModulesVanillaContentSort);
+			if ($ContentKey === False) {
+				array_push($ModulesVanillaContentSort, 'Content');
+				$ContentKey = count($ModulesVanillaContentSort) - 1;
+			}
+			array_splice($ModulesVanillaContentSort, $ContentKey + 1, 0, array('AnonymousCommentForm'));
+			// Saving. We do not use SaveToConfig() because it will save serialized string.
+			
+			$VarExport = create_function('$Value', 'return var_export($Value, True);');
+			
+			// Make sure that we put in config strings only.
+			$ModulesVanillaContentSort = array_map('strval', $ModulesVanillaContentSort);
+			$ModulesVanillaContentSort = array_map($VarExport, $ModulesVanillaContentSort);
+			$PhpArrayCode = implode(', ',  $ModulesVanillaContentSort);
+			$PhpArrayCode = "\n\$Configuration['Modules']['Vanilla']['Content'] = array($PhpArrayCode);";
+
+			$ConfigFile = PATH_LOCAL_CONF.'/config.php';
+			file_put_contents($ConfigFile, $PhpArrayCode, FILE_APPEND | LOCK_EX);
+		}
 	}
 }
 	
 
 
-
-
-
-
-
-// workspace
