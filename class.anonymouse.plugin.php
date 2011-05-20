@@ -4,8 +4,8 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.5.20',
-	'Date' => '16 May 2011',
+	'Version' => '2.5.21',
+	'Date' => '19 May 2011',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
 	//'RequiredPlugins' => array('Morf' => '*'),
@@ -72,7 +72,7 @@ if (!function_exists('RealIpAddress')) {
 			}
 		}
 		if (!$Ip) return $Ip;
-		return (is_numeric($Ip)) ? long2ip($Ip) : ip2long($Ip);
+		return (is_numeric($Ip)) ? long2ip($Ip) : sprintf('%u', ip2long($Ip));
 	}
 }
 
