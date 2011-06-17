@@ -40,7 +40,7 @@ if (!function_exists('UserAnchor')) {
 	function UserAnchor($User, $CssClass = '') {
 		static $AnonymousUserID;
 		if ($AnonymousUserID === Null) $AnonymousUserID = AnonymousePlugin::StaticGetAnonymousUserID();
-		if ($AnonymousUserID == $User->UserID) {
+		if ($AnonymousUserID == GetValue('UserID', $User->UserID)) {
 			// TODO: FIX ME, $CssClass is lost here
 			return $User->Name;
 		}
