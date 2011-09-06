@@ -4,7 +4,7 @@ $PluginInfo['Anonymouse'] = array(
 	'Name' => 'Anonymouse',
 	'Description' => 'Anonymous posting.',
 	'SettingsUrl' => '/settings/anonymouse',
-	'Version' => '2.5.21',
+	'Version' => '2.6',
 	'Date' => '19 May 2011',
 	'Author' => 'Anonymous',
 	'RequiredApplications' => array('Vanilla' => '>=2.0.16'),
@@ -166,7 +166,6 @@ class AnonymousePlugin extends Gdn_Plugin {
 	
 	protected function BecomeUnAuthenticatedUser() {
 		$Session = Gdn::Session();
-		if (!$Session->IsValid()) return;
 		$Session->UserID = 0;
 		$Session->User = False;
 	}
@@ -177,13 +176,8 @@ class AnonymousePlugin extends Gdn_Plugin {
 		if ($Session->IsValid()) return;
 		// $Session->User = Gdn_Dummy(); // may be useful
 		$Session->UserID = $AnonymousUserID;
-		$Session->User = new StdClass(); // for php < 5.3 
-		$Session->User->UserID = $AnonymousUserID;
-		$Session->User->Admin = 0;
-		$Session->User->HourOffset = 0;
-		$Session->User->Name = 'Anonymous';
-		$Session->User->CountNotifications = 0;
-		$Session->User->Photo = '';
+		$Session->User = Gdn::UserModel()->GetID($AnonymousUserID);
+		return $Session->User;
 	}
 	
 	public static function ResetCaptchaKey() {
@@ -282,7 +276,7 @@ class AnonymousePlugin extends Gdn_Plugin {
 		$Session->SetPermission('Vanilla.Comments.Add', $Permission);
 		$AddCommentsPermission = $Session->CheckPermission('Vanilla.Comments.Add', True, 'Category', $Sender->CategoryID);
 		
-		if (!$Session->IsValid() && $AddCommentsPermission) {
+		if (!$Session->IsValid() && $AddCommentsPermission && $Sender->Discussion->Closed == 0) {
 			
 			$Sender->AddCssFile('plugins/Anonymouse/anonymouse.css');
 			$Sender->AddJsFile('plugins/Anonymouse/anonymouse.js');
@@ -362,11 +356,11 @@ class AnonymousePlugin extends Gdn_Plugin {
 					if ($Name != '' && Gdn_Format::Text($Name) == '')
 						$Form->AddError(T('You have entered an invalid discussion title'), 'Name');
 					
-					$this->BecomeAnonymousUser();
+					$IsAnonymousUser = $this->BecomeAnonymousUser();
 					$DiscussionModel->SpamCheck = False;
 					// Save vanilla discussion
 					$DiscussionID = $DiscussionModel->Save($this->PostValues);
-					$this->BecomeUnAuthenticatedUser();
+					if ($IsAnonymousUser) $this->BecomeUnAuthenticatedUser();
 					if ($DiscussionID != False ) {
 						AnonymousModel::StaticSave($DiscussionID, $this->PostValues, 'Discussion');
 						$Sender->RedirectUrl = Url('/discussion/'.$DiscussionID);
@@ -400,13 +394,14 @@ class AnonymousePlugin extends Gdn_Plugin {
 				
 				if (!$this->IsCapthaValid()) 
 					$CommentModel->Validation->AddValidationResult('Captcha', T('Plugins.Anonymous.InvalidCaptchaCode', '%s: Invalid code from image.'));
-
-				$this->BecomeAnonymousUser();
+			
+				$IsAnonymousUser = $this->BecomeAnonymousUser();
 				$CommentModel->SpamCheck = False;
 				
 				// Save vanilla comment
 				$CommentID = $CommentModel->Save($this->PostValues);
-				$this->BecomeUnAuthenticatedUser();
+				if ($IsAnonymousUser) $this->BecomeUnAuthenticatedUser();
+				
 				if ($CommentID != False) {
 					// Save anonymous comment
 					AnonymousModel::StaticSave($CommentID, $this->PostValues, 'Comment');
